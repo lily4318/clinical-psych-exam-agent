@@ -36,6 +36,10 @@ def _validate_against_spec(
     spec: dict[str, str],
     form: str,
     known_sources: set[str],
+    *,
+    allowed_source_ids: set[str] | None = None,
+    historical_source_ids: set[str] | None = None,
+    knowledge_source_ids: set[str] | None = None,
 ) -> list[str]:
     errors = validate_item(item, known_sources)
     expected = {
@@ -50,6 +54,21 @@ def _validate_against_spec(
     for field, value in expected.items():
         if item.get(field) != value:
             errors.append(f"{field} must equal {value!r} for {spec['pair_id']} {form}.")
+
+    cited = set(item.get("sources") or [])
+    if allowed_source_ids is not None:
+        disallowed = sorted(cited - allowed_source_ids)
+        if disallowed:
+            errors.append(
+                "Item cites sources outside this pair's selected source context: "
+                + ", ".join(disallowed)
+            )
+
+    if historical_source_ids is not None and not (cited & historical_source_ids):
+        errors.append("Item must cite at least one selected historical exam-index source.")
+    if knowledge_source_ids is not None and not (cited & knowledge_source_ids):
+        errors.append("Item must cite at least one selected authoritative knowledge source.")
+
     return errors
 
 
@@ -70,11 +89,18 @@ def generate_form(
         answer_sources,
         knowledge_sources,
     )
+    historical_ids = {row["item_id"] for row in history if row.get("item_id")}
+    knowledge_ids = {
+        row["source_id"] for row in knowledge_sources if row.get("source_id")
+    }
     items: list[dict] = []
 
     for spec in pairs:
         context = build_source_context(spec, history, knowledge_sources)
         selected_source_ids = source_ids(context)
+        allowed = set(selected_source_ids)
+        selected_historical = allowed & historical_ids
+        selected_knowledge = allowed & knowledge_ids
         item = provider.generate_item(
             spec=spec,
             form=form,
@@ -82,7 +108,15 @@ def generate_form(
             source_ids=selected_source_ids,
             source_context=context,
         )
-        errors = _validate_against_spec(item, spec, form, known)
+        errors = _validate_against_spec(
+            item,
+            spec,
+            form,
+            known,
+            allowed_source_ids=allowed,
+            historical_source_ids=selected_historical,
+            knowledge_source_ids=selected_knowledge,
+        )
         if errors:
             raise ValueError(f"{item.get('item_id')}: " + "; ".join(errors))
         items.append(item)
@@ -161,6 +195,10 @@ def generate_parallel_pairs(
         answer_sources,
         knowledge_sources,
     )
+    historical_ids = {row["item_id"] for row in history if row.get("item_id")}
+    knowledge_ids = {
+        row["source_id"] for row in knowledge_sources if row.get("source_id")
+    }
 
     form_a_items: list[dict] = []
     form_b_items: list[dict] = []
@@ -168,6 +206,9 @@ def generate_parallel_pairs(
     for spec in pairs:
         context = build_source_context(spec, history, knowledge_sources)
         selected_source_ids = source_ids(context)
+        allowed = set(selected_source_ids)
+        selected_historical = allowed & historical_ids
+        selected_knowledge = allowed & knowledge_ids
         result = provider.generate_pair(spec, context)
 
         for key, form, target in (
@@ -179,7 +220,15 @@ def generate_parallel_pairs(
                 raise TypeError(f"{spec['pair_id']} {key} must be a dict.")
             item.setdefault("sources", selected_source_ids)
             item.setdefault("quality_status", "草稿")
-            errors = _validate_against_spec(item, spec, form, known)
+            errors = _validate_against_spec(
+                item,
+                spec,
+                form,
+                known,
+                allowed_source_ids=allowed,
+                historical_source_ids=selected_historical,
+                knowledge_source_ids=selected_knowledge,
+            )
             if errors:
                 raise ValueError(
                     f"{spec['pair_id']} {form}: " + "; ".join(errors)
