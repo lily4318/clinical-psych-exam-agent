@@ -12,6 +12,10 @@ COMMON_CONSTRAINTS = [
     "不得複製或近似改寫歷屆考題原文；只能使用歷屆考點索引來掌握考點與風格。",
     "若涉及 DSM、MI、CBT/RP、神經機制或藥物，解析必須能由提供的權威來源支持。",
     "解析需說明正確答案理由，並逐項說明 A-D 其他選項為何正確或錯誤。",
+    "sources 只能填入 source_context 中提供的 source_id。",
+    "每題至少引用一筆 requirement=historical_support 的歷屆考點來源與一筆權威知識來源。",
+    "所有 requirement=required_all 的 source_id 都必須列入 sources。",
+    "若存在 requirement=required_any 的來源，至少一筆 required_any source_id 必須列入 sources。",
     "輸出內容必須是 JSON-compatible object，不要附加 Markdown。",
 ]
 
