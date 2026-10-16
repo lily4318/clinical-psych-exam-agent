@@ -2,6 +2,12 @@
 
 此資料夾只保存已經由使用者明確核可的正式版本紀錄。
 
+## Current release pointer
+
+跨對話或重新啟動 Agent 時，第一個讀取的檔案是：`release/current_release.yaml`。
+
+它提供目前正式版本、formal manifest、approval record、最新 review manifest、主題與 Word 輸出規則的固定入口。未來正式版本升版時，應更新此 pointer，而不是要求使用者在新對話中重新描述歷史狀態。
+
 ## Current formal release
 
 目前正式版本為：`formal-v1.0`
@@ -23,6 +29,11 @@
 1. 先建立新的 review 版本；
 2. 完成人工審閱；
 3. 取得使用者明確核可；
-4. 建立新的 formal 版本。
+4. 建立新的 formal 版本；
+5. 更新 `current_release.yaml` 指向新的正式版本。
 
 不得直接覆寫既有 formal release。
+
+## Word export
+
+正式核可後的 Word 行為依 `agent/word_export_policy.md`：若使用者已要求 Word 則直接輸出；若尚未要求，Agent 必須主動詢問一次。預設套件為甲卷、乙卷、答案與解析三個 `.docx`。
