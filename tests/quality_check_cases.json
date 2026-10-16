@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "checks": [
+    {"id":"Q01","name":"每卷20題","severity":"error"},
+    {"id":"Q02","name":"主題配置符合blueprint.yaml","severity":"error"},
+    {"id":"Q03","name":"難度配置與甲乙卷一致","severity":"error"},
+    {"id":"Q04","name":"認知層次配置與甲乙卷一致","severity":"error"},
+    {"id":"Q05","name":"每題只有一個最佳答案","severity":"error"},
+    {"id":"Q06","name":"題幹資訊足以作答","severity":"error"},
+    {"id":"Q07","name":"四選項邏輯層次一致","severity":"warning"},
+    {"id":"Q08","name":"避免以上皆是／以上皆非","severity":"warning"},
+    {"id":"Q09","name":"否定題需清楚標示","severity":"error"},
+    {"id":"Q10","name":"不得重製歷屆題原文","severity":"error"},
+    {"id":"Q11","name":"解析需說明正解與各干擾選項","severity":"error"},
+    {"id":"Q12","name":"DSM資訊經可靠來源核對","severity":"error"},
+    {"id":"Q13","name":"MI／CBT／RP內容經可靠來源核對","severity":"error"},
+    {"id":"Q14","name":"生理心理／藥理內容經可靠來源核對","severity":"error"},
+    {"id":"Q15","name":"選項無長度語氣或絕對化作答線索","severity":"warning"},
+    {"id":"Q16","name":"P01-P20平行題學習目標、難度與認知層次等值","severity":"error"},
+    {"id":"Q17","name":"甲乙卷情境有實質差異","severity":"error"},
+    {"id":"Q18","name":"正確答案位置無明顯規律","severity":"warning"},
+    {"id":"Q19","name":"每題保留來源依據與品質狀態","severity":"error"},
+    {"id":"Q20","name":"正式發布前取得使用者最終核可","severity":"error"}
+  ]
+}
