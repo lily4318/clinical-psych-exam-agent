@@ -1,0 +1,25 @@
+agent_state_version: 1
+current_formal_release: formal-v1.0
+formal_manifest: release/formal_release_v1.0.yaml
+approval_record: release/approval_record_v1.0.md
+latest_review_release: review-v0.2
+review_manifest: review/release_manifest_v0.2.yaml
+topic: 物質濫用與依賴之心理衡鑑與心理治療
+forms:
+  form_a: 甲卷 P01-P20
+  form_b: 乙卷 P01-P20
+approval:
+  approved_by_user: true
+  approval_date: 2026-10-16
+continuation:
+  start_here:
+    - release/current_release.yaml
+    - agent/system_prompt.md
+    - docs/NEW_CHAT_CONTINUATION.md
+word_export:
+  default_package:
+    - 甲卷
+    - 乙卷
+    - 答案與解析
+  after_formal_approval: ask_or_export
+  if_user_previously_requested_word: export_immediately
