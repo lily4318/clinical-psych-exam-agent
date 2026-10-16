@@ -1,9 +1,6 @@
 name: tests
 
 "on":
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
@@ -23,3 +20,8 @@ jobs:
         run: pip install -e ".[test]"
       - name: Test
         run: pytest
+
+# Automatic push runs are intentionally paused because this private repository
+# currently returns GitHub Actions startup_failure before any job is created.
+# Re-enable push/pull_request triggers after the repository/account Actions
+# execution setting is fixed; the pytest job itself remains defined here.
