@@ -168,7 +168,9 @@ def main() -> None:
     from .load_blueprint import load_blueprint, load_parallel_blueprint
     from .load_exam_history import (
         known_source_ids,
+        load_answer_source_catalog,
         load_historical_index,
+        load_knowledge_sources,
         load_official_sources,
     )
 
@@ -184,7 +186,12 @@ def main() -> None:
         form_b,
         load_blueprint(),
         load_parallel_blueprint(),
-        known_source_ids(load_historical_index(), load_official_sources()),
+        known_source_ids(
+            load_historical_index(),
+            load_official_sources(),
+            load_answer_source_catalog(),
+            load_knowledge_sources(),
+        ),
     )
     print(json.dumps(report, ensure_ascii=False, indent=2))
     raise SystemExit(0 if report["ok"] else 1)
