@@ -30,6 +30,7 @@ clinical-psych-exam-check = "src.check_parallel_forms:main"
 clinical-psych-exam-prompts = "src.export_prompt_pack:main"
 clinical-psych-exam-openai = "src.run_openai_generation:main"
 clinical-psych-review-build = "src.assemble_review_exam:main"
+clinical-psych-user-review = "src.export_user_review_packet:main"
 
 [tool.setuptools]
 packages = ["src"]
