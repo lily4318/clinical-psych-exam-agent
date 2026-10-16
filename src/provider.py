@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Protocol
 
-from .prompt_builder import build_generation_request
+from .prompt_builder import build_generation_request, build_pair_generation_request
 
 
 class QuestionProvider(Protocol):
@@ -16,6 +16,15 @@ class QuestionProvider(Protocol):
         source_context: list[dict[str, str]] | None = None,
     ) -> dict:
         """Generate one item matching the supplied pair specification."""
+
+
+class PairQuestionProvider(Protocol):
+    def generate_pair(
+        self,
+        spec: dict[str, str],
+        source_context: list[dict[str, str]],
+    ) -> dict:
+        """Generate a source-grounded parallel pair containing form_a and form_b."""
 
 
 ANSWER_ORDERS = {
@@ -79,14 +88,7 @@ class StubQuestionProvider:
 
 
 class CallbackQuestionProvider:
-    """Adapter for a real model/client supplied by the caller.
-
-    The callback receives a structured generation request containing the exact
-    item specification and only the source metadata selected for that item. It
-    must return one JSON-compatible exam item. This keeps the core repository
-    independent of any specific paid API and prevents API keys from entering
-    source control.
-    """
+    """Adapter for a real model/client supplied by the caller."""
 
     def __init__(self, callback: Callable[[dict], dict]):
         self.callback = callback
@@ -112,3 +114,30 @@ class CallbackQuestionProvider:
         item.setdefault("sources", source_ids)
         item.setdefault("quality_status", "草稿")
         return item
+
+
+class CallbackPairQuestionProvider:
+    """Adapter that generates both forms of one pair in a single model call."""
+
+    def __init__(self, callback: Callable[[dict], dict]):
+        self.callback = callback
+
+    def generate_pair(
+        self,
+        spec: dict[str, str],
+        source_context: list[dict[str, str]],
+    ) -> dict:
+        request = build_pair_generation_request(
+            spec=spec,
+            source_context=source_context,
+            form_a_item_id=spec["form_a_item"],
+            form_b_item_id=spec["form_b_item"],
+            form_a_target_answer=target_answer_for(spec["pair_id"], "甲卷"),
+            form_b_target_answer=target_answer_for(spec["pair_id"], "乙卷"),
+        )
+        result = self.callback(request)
+        if not isinstance(result, dict):
+            raise TypeError("Pair provider callback must return a dict.")
+        if not {"form_a", "form_b"}.issubset(result):
+            raise ValueError("Pair provider result must contain form_a and form_b.")
+        return result
