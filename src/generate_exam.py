@@ -95,11 +95,11 @@ def _validate_against_spec(
 def _source_rule_sets(
     spec: dict[str, str],
     source_requirements: dict[str, dict[str, list[str]]],
-) -> tuple[set[str], set[str], set[str]]:
+) -> tuple[set[str], set[str]]:
     rules = source_requirements[spec["pair_id"]]
     required_all = set(rules.get("require_all") or [])
     required_any = set(rules.get("require_any") or [])
-    return required_all, required_any, required_all | required_any
+    return required_all, required_any
 
 
 def generate_form(
@@ -127,14 +127,13 @@ def generate_form(
     items: list[dict] = []
 
     for spec in pairs:
-        required_all, required_any, required_context = _source_rule_sets(
-            spec, source_requirements
-        )
+        required_all, required_any = _source_rule_sets(spec, source_requirements)
         context = build_source_context(
             spec,
             history,
             knowledge_sources,
-            required_source_ids=required_context,
+            required_all_source_ids=required_all,
+            required_any_source_ids=required_any,
         )
         selected_source_ids = source_ids(context)
         allowed = set(selected_source_ids)
@@ -249,14 +248,13 @@ def generate_parallel_pairs(
     form_b_items: list[dict] = []
 
     for spec in pairs:
-        required_all, required_any, required_context = _source_rule_sets(
-            spec, source_requirements
-        )
+        required_all, required_any = _source_rule_sets(spec, source_requirements)
         context = build_source_context(
             spec,
             history,
             knowledge_sources,
-            required_source_ids=required_context,
+            required_all_source_ids=required_all,
+            required_any_source_ids=required_any,
         )
         selected_source_ids = source_ids(context)
         allowed = set(selected_source_ids)
