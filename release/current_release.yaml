@@ -1,4 +1,4 @@
-agent_state_version: 3
+agent_state_version: 4
 current_formal_release: formal-v1.0
 formal_manifest: release/formal_release_v1.0.yaml
 approval_record: release/approval_record_v1.0.md
@@ -16,15 +16,26 @@ public_usage:
   example: https://github.com/lily4318/clinical-psych-exam-agent 幫我做兒童版考卷
   public_repo_default_access: read_only
   persistent_customization: fork_repository
+simulation_defaults:
+  policy_file: config/simulation_policy.yaml
+  historical_exam_window: latest_5_available_exam_years
+  current_resolved_years: [111, 112, 113, 114, 115]
+  default_items_per_form: 20
+  ask_item_count_when_omitted: false
+  honor_user_specified_item_count: true
+  specified_parallel_count_means: each_form
 forms:
-  form_a: 甲卷 P01-P20
-  form_b: 乙卷 P01-P20
+  current_formal_snapshot:
+    form_a: 甲卷 P01-P20
+    form_b: 乙卷 P01-P20
+  note: formal-v1.0 保留原 20 題正式版本；新的模擬測驗依 simulation_policy.yaml 決定近5年與題數。
 approval:
   approved_by_user: true
   approval_date: 2026-10-16
 continuation:
   start_here:
     - START_HERE.md
+    - config/simulation_policy.yaml
     - release/current_release.yaml
     - agent/system_prompt.md
     - docs/NEW_CHAT_CONTINUATION.md
