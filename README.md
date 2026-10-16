@@ -9,7 +9,8 @@
 - 已建立官方答案狀態：71 題選擇題＋3 題申論題
 - 目標輸出：甲卷、乙卷各 20 題四選一單選題
 - 平行卷：20 組配對題槽位（P01–P20）
-- 目前 canonical 人工審閱 release：`review-v0.2`（P01–P20，共 40 題；已完成考生視角難度複核，尚未由使用者最終核可）
+- 目前正式核可 release：`formal-v1.0`（來源 `review-v0.2`；甲乙卷各 20 題，共 40 題；2026-10-16 經使用者正式核可）
+- 目前歷史人工審閱 release：`review-v0.2`（保留原始待複核 metadata，不覆寫）
 - 生成策略：每次以一組 Pxx 同時生成甲乙兩題，直接控制等值性
 - 最終核可：使用者
 
@@ -41,7 +42,8 @@ GitHub 是 Agent 的正式版本庫，保存提示詞、命題藍圖、歷屆考
 - `data/official_answer_keys.csv`：74 個索引題目的官方答案狀態
 - `data/answer_source_catalog.csv`：考選部標準答案／更正答案來源
 - `data/knowledge_sources.csv`：DSM、MI、CBT/RP、衡鑑、神經機制、藥理與臺灣政策權威來源索引
-- `review/`：具版本價值的人工審閱題、reviewer 報告、release manifest 與 release notes
+- `review/`：具版本價值的人工審閱題、reviewer 報告、review manifest 與 release notes
+- `release/`：使用者正式核可版本；以 manifest 與 Git blob SHA 凍結核可內容
 - `src/`：載入、來源選擇、Prompt、Provider、驗證、等值檢查、review 組卷與匯出流程
 - `schemas/`：題目與考卷 JSON Schema
 - `tests/`：pytest 自動測試與品質檢核案例
@@ -63,9 +65,17 @@ pip install -e ".[test]"
 pytest
 ```
 
+## 正式核可版本（formal-v1.0）
+
+`release/formal_release_v1.0.yaml` 是目前正式核可版本入口。它由 `review-v0.2` 升版而來，核可範圍為甲卷 P01–P20 與乙卷 P01–P20，共 40 題。
+
+正式 manifest 同時記錄來源 review manifest SHA 與五個題組檔的 Git blob SHA，因此 `formal-v1.0` 所代表的題目內容已凍結。任何未來修訂都必須建立新的 review 版本，再經使用者明確核可後建立新的 formal 版本，不得直接覆寫既有正式版。
+
+核可紀錄：`release/approval_record_v1.0.md`。
+
 ## 完整人工審閱版（review-v0.2）
 
-`review/release_manifest_v0.2.yaml` 是目前 P01–P20 的 canonical 組卷入口。它固定指向：
+`review/release_manifest_v0.2.yaml` 是 P01–P20 的歷史 canonical 審閱入口。它固定指向：
 
 - P01–P04 v0.2
 - P05–P08 v0.3
@@ -80,7 +90,7 @@ pytest
 - P12：改為 OUD／AUD 真實用藥條件與 naltrexone 的 opioid 安全限制。
 - P17：干擾選項改為「部分正確但過度推論」，要求區分延宕折扣的關聯、診斷與因果推論邊界。
 
-組成完整甲乙卷：
+組成完整甲乙審閱卷：
 
 ```bash
 clinical-psych-review-build
@@ -94,7 +104,7 @@ python -m src.assemble_review_exam
 
 組卷器在輸出完整卷前會重新檢查：P01–P20 是否完整、每卷 20 題、A–F 分布 4/3/2/4/4/3、難度 2/11/7、認知層次 2/8/7/3、指定答案位置、甲乙卷平行結構、歷屆來源、pair-specific 核心權威來源。任一硬性檢核失敗就不輸出完整審閱卷。
 
-此版本一律維持 `approved_by_user=false` 與 `待複核`，直到使用者明確核可。
+為保存審閱歷史，`review-v0.2` 原始檔仍維持建立時的 `approved_by_user=false` 與 `待複核`；其正式核可狀態由 `release/formal_release_v1.0.yaml` 獨立記錄。
 
 ### 1. 產生結構測試版甲乙卷
 
@@ -190,7 +200,7 @@ clinical-psych-exam-openai --out output/openai-draft
 6. 若有 error，停止正式匯出並保留 `parallel_form_check.json`。
 7. 只有通過結構檢核後，才輸出 JSON、考卷 Markdown 與答案解析 Markdown。
 
-即使程式檢核通過，產出的內容仍只屬「草稿」，不會自動變成「已核可」。
+即使程式檢核通過，新生成內容仍只屬「草稿」，不會自動變成「已核可」。
 
 ## 正式題目供應器架構
 
@@ -216,4 +226,4 @@ clinical-psych-exam-openai --out output/openai-draft
 5. 不確定的資訊標記為待查證，不可自行補造。
 6. 每題應有單一最佳答案、逐項解析與來源依據。
 7. 程式自動檢核只處理可形式化規則；內容正確性與題目品質仍需人工複核。
-8. 最終發布前必須由使用者人工核可。
+8. 正式發布前必須由使用者人工核可；已核可版本不得無版本號直接覆寫。
