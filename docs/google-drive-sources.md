@@ -1,6 +1,6 @@
 # Google Drive Source Repository
 
-Google Drive 作為本 Agent 的原始資料庫；GitHub 作為正式版本庫。
+Google Drive 作為本 Agent 的原始資料庫；GitHub 作為正式版本庫與唯一正式設定來源（source of truth）。
 
 ## Google Drive 主資料夾
 
@@ -38,4 +38,7 @@ Google Drive 保存：
 
 ## 同步原則
 
-若 Google Drive 中的正式藍圖、歷屆索引或 Agent 規則有重大修改，應同步更新 GitHub 並留下 commit 紀錄。GitHub 版本應視為可追蹤的正式規格版本。
+1. `config/blueprint.yaml` 與 `config/parallel_form_blueprint.csv` 為目前正式命題設定。
+2. 若 Google Drive 舊工作表與 GitHub 設定衝突，以 GitHub `main` 分支為準，再決定是否回寫 Drive。
+3. 2026-10-16 建立可執行版時發現舊 `甲乙卷配對` 的 P01–P20 認知層次合計為「記憶2／理解7／應用7／整合4」，與正式藍圖「記憶2／理解8／應用7／整合3」不一致。正式 GitHub 版已將 P09「失誤效應（AVE）與復發歷程」由「整合」調整為「理解」，保留 P20 作為 D 類整合題，使類別與整體認知層次配置一致。
+4. 若 Google Drive 中的正式藍圖、歷屆索引或 Agent 規則有重大修改，應同步更新 GitHub 並留下 commit 紀錄。
