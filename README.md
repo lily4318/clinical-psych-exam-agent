@@ -9,6 +9,7 @@
 - 已建立官方答案狀態：71 題選擇題＋3 題申論題
 - 目標輸出：甲卷、乙卷各 20 題四選一單選題
 - 平行卷：20 組配對題槽位（P01–P20）
+- 已完成第一個完整人工審閱 release：`review-v0.1`（P01–P20，共 40 題；尚未由使用者最終核可）
 - 生成策略：每次以一組 Pxx 同時生成甲乙兩題，直接控制等值性
 - 最終核可：使用者
 
@@ -35,12 +36,13 @@ GitHub 是 Agent 的正式版本庫，保存提示詞、命題藍圖、歷屆考
 ## 目錄
 
 - `agent/`：Agent 角色與工作規則
-- `config/`：命題藍圖、平行卷規格、難度與來源優先序
+- `config/`：命題藍圖、平行卷規格、pair-specific 核心來源、難度與來源優先序
 - `data/historical_exam_index.csv`：110–115 年 74 個歷屆考點摘要索引
 - `data/official_answer_keys.csv`：74 個索引題目的官方答案狀態
 - `data/answer_source_catalog.csv`：考選部標準答案／更正答案來源
 - `data/knowledge_sources.csv`：DSM、MI、CBT/RP、衡鑑、神經機制、藥理與臺灣政策權威來源索引
-- `src/`：載入、來源選擇、Prompt、Provider、驗證、等值檢查與匯出流程
+- `review/`：具版本價值的人工審閱題、reviewer 報告、release manifest 與 release notes
+- `src/`：載入、來源選擇、Prompt、Provider、驗證、等值檢查、review 組卷與匯出流程
 - `schemas/`：題目與考卷 JSON Schema
 - `tests/`：pytest 自動測試與品質檢核案例
 - `docs/`：Google Drive 原始資料位置與工作流程
@@ -60,6 +62,32 @@ source .venv/bin/activate
 pip install -e ".[test]"
 pytest
 ```
+
+## 完整人工審閱版（review-v0.1）
+
+`review/release_manifest_v0.1.yaml` 是目前 P01–P20 的唯一 canonical 組卷入口。它固定指向五個最新版批次：
+
+- P01–P04 v0.2
+- P05–P08 v0.2
+- P09–P12 v0.2
+- P13–P16 v0.2
+- P17–P20 v0.2
+
+組成完整甲乙卷：
+
+```bash
+clinical-psych-review-build
+```
+
+或：
+
+```bash
+python -m src.assemble_review_exam
+```
+
+組卷器在輸出完整卷前會重新檢查：P01–P20 是否完整、每卷 20 題、A–F 分布 4/3/2/4/4/3、難度 2/11/7、認知層次 2/8/7/3、指定答案位置、甲乙卷平行結構、歷屆來源、pair-specific 核心權威來源。任一硬性檢核失敗就不輸出完整審閱卷。
+
+此版本一律維持 `approved_by_user=false` 與 `待複核`，直到使用者明確核可。
 
 ### 1. 產生結構測試版甲乙卷
 
@@ -82,6 +110,7 @@ python -m src.export_prompt_pack --out output/pair_generation_requests.json
 - 甲乙卷各自指定的正確答案位置
 - 最相關的歷屆考點摘要
 - 對應的權威知識來源
+- pair-specific 必須引用的核心來源
 - 禁止近似改寫歷屆題、禁止無來源補造內容等限制
 
 ### 3. 驗證甲乙卷
@@ -149,7 +178,7 @@ clinical-psych-exam-openai --out output/openai-draft
 1. 讀取正式藍圖與 P01–P20。
 2. 為每組題目選出最相關的歷屆考點摘要與權威來源。
 3. 一次要求模型生成同一 Pxx 的甲乙兩題。
-4. 強制核對題號、類別、難度、認知層次與指定答案位置。
+4. 強制核對題號、類別、難度、認知層次、指定答案位置與 pair-specific 核心來源。
 5. 執行整份甲乙卷等值檢核。
 6. 若有 error，停止正式匯出並保留 `parallel_form_check.json`。
 7. 只有通過結構檢核後，才輸出 JSON、考卷 Markdown 與答案解析 Markdown。
@@ -164,6 +193,12 @@ clinical-psych-exam-openai --out output/openai-draft
 - `CallbackPairQuestionProvider`：一次生成同一 Pxx 的甲乙兩題；正式出題優先使用此方式。
 
 `src/openai_provider.py` 則把 OpenAI Responses API 包成 JSON callback。repo 不綁死任何模型名稱，也不保存 API key。
+
+## GitHub Actions 狀態
+
+此 private repository 目前在 GitHub Actions 建立 job 前會回傳 `startup_failure`。為避免每次 push 都產生無意義的失敗紀錄，自動 push trigger 暫時停用，只保留手動 `workflow_dispatch`。待 repository／account 的 Actions 執行設定排除後，再恢復自動 CI。
+
+這不代表 pytest 已在 GitHub runner 上通過；repo 內仍保留完整 pytest 測試，包含 canonical review release 的 P01–P20 組卷測試。
 
 ## 核心原則
 
