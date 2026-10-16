@@ -1,0 +1,235 @@
+{
+  "version": "pilot-p09-p12-v0.1",
+  "scope": "P09-P12 source-backed draft for human review",
+  "approved_by_user": false,
+  "pairs": [
+    {
+      "pair_id": "P09",
+      "core_topic": "失誤效應（AVE）與復發歷程",
+      "equivalence_notes": "兩題皆描述一段禁慾後發生單次使用，接著出現全有全無、自我失敗歸因、羞愧／無望並擴大使用。考生需辨識這是 abstinence violation effect，而不只是 craving 或 cue reactivity。",
+      "form_a": {
+        "item_id": "甲09",
+        "form": "甲卷",
+        "pair_id": "P09",
+        "stem": "一名戒酒三個月的個案在婚宴上喝了一杯酒，之後立刻想：『我果然沒有自制力，三個月都白費了，既然已經破功，今晚喝多少都沒差。』接著當晚大量飲酒。此歷程最符合下列哪一概念？",
+        "options": {
+          "A": "戒斷症候群",
+          "B": "延宕折扣",
+          "C": "禁慾違反效應（abstinence violation effect, AVE）",
+          "D": "單純的條件化線索反應"
+        },
+        "correct_answer": "C",
+        "category": "D",
+        "subtopic": "單次失誤、全有全無思考與AVE",
+        "difficulty": "進階",
+        "cognitive_level": "理解",
+        "rationale": {
+          "correct": "AVE 描述禁慾後一次使用被解讀為全面失敗，伴隨內在、穩定、全域式負向歸因，以及罪惡、羞愧或無望，進而增加更嚴重再使用的風險。",
+          "A": "錯誤。題幹核心不是停酒後生理戒斷，而是一次 lapse 之後的認知與情緒反應。",
+          "B": "錯誤。延宕折扣涉及立即與延遲獎賞價值的取捨，無法解釋『一次失誤等於全盤失敗』的歷程。",
+          "C": "正確。個案把一次飲酒視為自我失敗並因此擴大飲酒，符合 AVE。",
+          "D": "錯誤。婚宴可能含有飲酒線索，但題幹強調的是 lapse 後的失敗歸因、羞愧與放棄，而非單純線索誘發渴求。"
+        },
+        "sources": ["114-E2", "SAMHSA-TIP65-RP"],
+        "quality_status": "草稿"
+      },
+      "form_b": {
+        "item_id": "乙09",
+        "form": "乙卷",
+        "pair_id": "P09",
+        "stem": "一名已停用興奮劑四個月的個案在朋友聚會中再次使用一次。隔天他想：『我證明自己就是個失敗的人，以後一定也戒不掉。』並因強烈羞愧與無望感，在接下來幾天持續使用。此現象最適合用哪一概念解釋？",
+        "options": {
+          "A": "耐受性的快速恢復",
+          "B": "負向強化",
+          "C": "刺激泛化",
+          "D": "禁慾違反效應（abstinence violation effect, AVE）"
+        },
+        "correct_answer": "D",
+        "category": "D",
+        "subtopic": "復發後自我歸因與AVE",
+        "difficulty": "進階",
+        "cognitive_level": "理解",
+        "rationale": {
+          "correct": "AVE 的認知成分常包含把 recurrence 歸因於個人內在、穩定且廣泛的缺陷，情緒成分則包括罪惡、羞愧與無望，這些反應會增加持續再使用風險。",
+          "A": "錯誤。題幹沒有描述達到相同效果需要增加劑量。",
+          "B": "錯誤。負向強化可參與物質使用維持，但無法完整解釋題幹的『我是失敗的人、以後一定戒不掉』歸因歷程。",
+          "C": "錯誤。刺激泛化著重相似線索引發反應，不是此題的核心。",
+          "D": "正確。一次 recurrence 後的全盤失敗歸因與羞愧無望正是 AVE 的典型歷程。"
+        },
+        "sources": ["115-Q24", "SAMHSA-TIP65-RP"],
+        "quality_status": "草稿"
+      }
+    },
+    {
+      "pair_id": "P10",
+      "core_topic": "危險因子與保護因子",
+      "equivalence_notes": "兩題皆要求從個人、家庭、同儕與學校層次辨識成癮風險與保護組合。甲卷辨識保護因子組合，乙卷辨識風險因子組合。",
+      "form_a": {
+        "item_id": "甲10",
+        "form": "甲卷",
+        "pair_id": "P10",
+        "stem": "若評估一名國中生未來物質使用風險，下列哪一組較符合跨層次的保護因子（protective factors）？",
+        "options": {
+          "A": "穩定親子溝通、適度家長監督、與學校有連結感且主要同儕不使用物質",
+          "B": "高衝動性、父母監督不足、同儕普遍使用物質但學業成績良好",
+          "C": "家庭衝突頻繁、對學校缺乏歸屬感、社區容易取得物質但有一位支持性老師",
+          "D": "情緒調節困難、早期開始使用菸酒、同儕偏差行為較多但家庭經濟穩定"
+        },
+        "correct_answer": "A",
+        "category": "B",
+        "subtopic": "個人家庭同儕學校層次保護因子",
+        "difficulty": "中等",
+        "cognitive_level": "理解",
+        "rationale": {
+          "correct": "物質使用的保護因子可分布於家庭、同儕、學校與社區等多層次；穩定親子關係、適度監督、學校連結及非使用同儕皆可降低風險。",
+          "A": "正確。四項均屬具有保護作用的跨層次因素。",
+          "B": "錯誤。高衝動性、監督不足與使用物質的同儕均是重要風險來源。",
+          "C": "錯誤。雖有支持性老師，但家庭衝突、低學校連結與物質可近性提高整體風險。",
+          "D": "錯誤。情緒調節困難、早期使用與偏差同儕皆屬明顯危險因子。"
+        },
+        "sources": ["112-Q25", "NIDA-PREVENTION-PRINCIPLES"],
+        "quality_status": "草稿"
+      },
+      "form_b": {
+        "item_id": "乙10",
+        "form": "乙卷",
+        "pair_id": "P10",
+        "stem": "下列哪一組最符合青少年物質使用的跨層次危險因子（risk factors）組合？",
+        "options": {
+          "A": "家庭支持穩定、學校歸屬感高、同儕多不使用物質，但個人偶有壓力",
+          "B": "父母監督不足、同儕使用物質、學校投入下降，且社區取得物質相對容易",
+          "C": "與照顧者溝通良好、有固定課外活動、學校支持充足，但曾因好奇詢問物質資訊",
+          "D": "有一位使用物質的遠親，但親子監督良好、同儕支持健康且學校連結穩定"
+        },
+        "correct_answer": "B",
+        "category": "B",
+        "subtopic": "家庭同儕學校社區層次危險因子",
+        "difficulty": "中等",
+        "cognitive_level": "理解",
+        "rationale": {
+          "correct": "風險與保護因子可能同時存在於多個層次；父母監督不足、使用物質的同儕、學校投入下降與較高物質可近性會共同增加風險。",
+          "A": "錯誤。多數描述屬保護因子，偶有壓力本身不足以構成最強的跨層次風險組合。",
+          "B": "正確。此組合橫跨家庭、同儕、學校與社區多個風險層次。",
+          "C": "錯誤。主要條件均屬保護因子，單純詢問資訊不等同高風險。",
+          "D": "錯誤。雖有遠親使用物質，但其餘多項重要保護因子存在。"
+        },
+        "sources": ["111-Q25", "NIDA-PREVENTION-PRINCIPLES"],
+        "quality_status": "草稿"
+      }
+    },
+    {
+      "pair_id": "P11",
+      "core_topic": "社區／校園／家庭介入",
+      "equivalence_notes": "兩題皆評估多層次預防方案是否同時涵蓋個人技能、家庭／同儕或學校與社區環境。甲卷以校園社區為場域，乙卷以高風險社區家庭為場域。",
+      "form_a": {
+        "item_id": "甲11",
+        "form": "甲卷",
+        "pair_id": "P11",
+        "stem": "某地區青少年電子煙與非法藥物使用增加，學校希望設計較符合實證預防原則的方案。下列何者最適當？",
+        "options": {
+          "A": "只安排一次大型恐嚇式演講，主要以嚴重後果提高學生害怕程度",
+          "B": "只處理已被抓到使用物質的學生，不調整家庭、同儕或校園層次因素",
+          "C": "只在社群媒體發布反毒標語，不評估當地青少年的實際風險與保護因子",
+          "D": "結合學生生活與拒絕技能、家長溝通與監督、校園支持系統，並依當地物質可近性與族群特性調整方案"
+        },
+        "correct_answer": "D",
+        "category": "F",
+        "subtopic": "校園家庭社區多層次預防",
+        "difficulty": "中等",
+        "cognitive_level": "理解",
+        "rationale": {
+          "correct": "實證預防原則強調降低風險因子、增強保護因子，並考量家庭、學校、同儕及社區等多層次，同時依發展階段與在地需求調整。",
+          "A": "錯誤。單次恐嚇訊息缺乏技能訓練與多層次風險處理。",
+          "B": "錯誤。只處理已被發現的學生會忽略更廣泛的預防與環境因素。",
+          "C": "錯誤。單一標語且未依當地風險調整，不足以構成完整的實證預防方案。",
+          "D": "正確。此方案同時涵蓋個人、家庭、學校與社區層次，並依在地風險調整。"
+        },
+        "sources": ["113-Q23", "NIDA-PREVENTION-PRINCIPLES"],
+        "quality_status": "草稿"
+      },
+      "form_b": {
+        "item_id": "乙11",
+        "form": "乙卷",
+        "pair_id": "P11",
+        "stem": "某社區青少年開始使用物質的年齡下降，且家長普遍反映不清楚如何監督與溝通。若依多層次預防原則，下列哪一方案最合適？",
+        "options": {
+          "A": "只加重對被查獲青少年的懲罰，希望其他學生因此不敢嘗試",
+          "B": "只提供家長一本宣導手冊，其他學校與社區環境維持不變",
+          "C": "結合親職訓練、青少年技能訓練、學校支持與社區資源，並針對當地早期使用風險持續評估與調整",
+          "D": "把所有資源集中在醫院端治療已達重度物質使用障礙的少數青少年"
+        },
+        "correct_answer": "C",
+        "category": "F",
+        "subtopic": "家庭與社區整合預防",
+        "difficulty": "中等",
+        "cognitive_level": "理解",
+        "rationale": {
+          "correct": "多層次預防應同時強化家庭與青少年的保護因子，並連結學校與社區資源，且依當地風險型態與發展階段調整。",
+          "A": "錯誤。單純懲罰不能取代風險／保護因子與技能層次的預防介入。",
+          "B": "錯誤。只提供資訊而缺乏實際技能與系統支持，介入強度與層次不足。",
+          "C": "正確。此方案跨家庭、個人、學校與社區層次，並包含持續評估與在地調整。",
+          "D": "錯誤。只治療已達重度障礙者無法回應題幹所描述的整體社區早期風險。"
+        },
+        "sources": ["114-Q25", "NIDA-PREVENTION-PRINCIPLES"],
+        "quality_status": "草稿"
+      }
+    },
+    {
+      "pair_id": "P12",
+      "core_topic": "戒癮藥物／替代或拮抗治療",
+      "equivalence_notes": "兩題皆要求根據治療目標與藥理角色辨識拮抗劑。甲卷在 OUD 情境辨識長效維持用 opioid antagonist；乙卷在 AUD 情境辨識可用於治療的 opioid receptor antagonist。",
+      "form_a": {
+        "item_id": "甲12",
+        "form": "甲卷",
+        "pair_id": "P12",
+        "stem": "一名 opioid use disorder 個案已完成解毒，並希望使用不具 opioid agonist 活性的長期藥物來降低復發風險。下列何者最符合此治療角色？",
+        "options": {
+          "A": "Methadone",
+          "B": "Naltrexone",
+          "C": "Buprenorphine",
+          "D": "Naloxone 作為日常長期維持治療"
+        },
+        "correct_answer": "B",
+        "category": "E",
+        "subtopic": "OUD拮抗劑治療",
+        "difficulty": "中等",
+        "cognitive_level": "理解",
+        "rationale": {
+          "correct": "Naltrexone 是 opioid receptor antagonist，可用於 OUD 的維持治療；methadone 與 buprenorphine 分別屬 full agonist 與 partial agonist 治療。",
+          "A": "錯誤。Methadone 是 opioid agonist，雖可有效治療 OUD，但不符合題幹要求的非 agonist 拮抗治療。",
+          "B": "正確。Naltrexone 為 opioid antagonist，可作為 OUD 維持治療選項。",
+          "C": "錯誤。Buprenorphine 是 partial opioid agonist，不符合題幹描述。",
+          "D": "錯誤。Naloxone 主要用於 opioid overdose reversal，並非一般日常長期維持治療。"
+        },
+        "sources": ["111-Q26", "SAMHSA-TIP63"],
+        "quality_status": "草稿"
+      },
+      "form_b": {
+        "item_id": "乙12",
+        "form": "乙卷",
+        "pair_id": "P12",
+        "stem": "一名 alcohol use disorder 個案希望搭配心理治療使用藥物，以降低酒精的獎賞效果與復飲風險。下列何者屬 opioid receptor antagonist，且為 AUD 的核准治療藥物之一？",
+        "options": {
+          "A": "Naltrexone",
+          "B": "Acamprosate",
+          "C": "Disulfiram",
+          "D": "Diazepam 作為長期預防復飲藥物"
+        },
+        "correct_answer": "A",
+        "category": "E",
+        "subtopic": "AUD藥物治療與naltrexone",
+        "difficulty": "中等",
+        "cognitive_level": "理解",
+        "rationale": {
+          "correct": "Naltrexone 是 opioid receptor antagonist，也是 AUD 的實證藥物治療選項之一，可降低酒精的獎賞效果與重度飲酒風險。",
+          "A": "正確。Naltrexone 符合題幹所述的 opioid receptor antagonist 角色。",
+          "B": "錯誤。Acamprosate 可用於 AUD，但不是 opioid receptor antagonist。",
+          "C": "錯誤。Disulfiram 透過干擾酒精代謝造成飲酒後不適，機轉不同。",
+          "D": "錯誤。Benzodiazepines 可用於急性酒精戒斷管理，但不作為一般長期預防復飲的核心維持藥物。"
+        },
+        "sources": ["113-Q29", "NIAAA-AUD-MEDS"],
+        "quality_status": "草稿"
+      }
+    }
+  ]
+}
