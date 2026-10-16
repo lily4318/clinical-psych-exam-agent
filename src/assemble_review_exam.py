@@ -19,7 +19,7 @@ from .load_blueprint import (
     load_pair_source_requirements,
     load_parallel_blueprint,
 )
-from .load_exam_history import known_source_ids
+from .load_exam_history import CATEGORY_LABELS, known_source_ids
 from .source_context import build_source_context, source_ids
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -90,7 +90,6 @@ def assemble_review_release(
         answer_sources,
         knowledge_sources,
     )
-    historical_ids = {row["item_id"] for row in history if row.get("item_id")}
     knowledge_ids = {
         row["source_id"] for row in knowledge_sources if row.get("source_id")
     }
@@ -112,9 +111,20 @@ def assemble_review_release(
             knowledge_sources,
             required_source_ids=required_context,
         )
-        allowed = set(source_ids(context))
-        selected_historical = allowed & historical_ids
-        selected_knowledge = allowed & knowledge_ids
+        context_ids = set(source_ids(context))
+        selected_knowledge = context_ids & knowledge_ids
+
+        # Human-reviewed batches may intentionally cite a relevant historical
+        # item that did not land in the automatic top-N similarity selection.
+        # Keep historical citations restricted to the same blueprint category,
+        # while authoritative knowledge sources remain pair-specific and strict.
+        category_label = CATEGORY_LABELS[spec["category"]]
+        category_historical = {
+            row["item_id"]
+            for row in history
+            if row.get("item_id") and row.get("category") == category_label
+        }
+        allowed = category_historical | selected_knowledge
 
         for key, form, target in (
             ("form_a", "甲卷", form_a_items),
@@ -127,7 +137,7 @@ def assemble_review_release(
                 form,
                 known,
                 allowed_source_ids=allowed,
-                historical_source_ids=selected_historical,
+                historical_source_ids=category_historical,
                 knowledge_source_ids=selected_knowledge,
                 required_all_source_ids=required_all,
                 required_any_source_ids=required_any,
