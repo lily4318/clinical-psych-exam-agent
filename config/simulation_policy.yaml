@@ -1,0 +1,39 @@
+version: 1
+purpose: "新模擬測驗的歷屆考題範圍與題數預設規則"
+
+historical_exam_window:
+  mode: latest_available_exam_years
+  count: 5
+  source: data/historical_exam_index.csv
+  resolution_rule:
+    latest_year: "取 historical_exam_index.csv 中可取得之最大 year"
+    selected_years: "取最新的 5 個不同考試年度；若不足 5 年則使用全部可取得年度並提醒使用者"
+  current_snapshot_years: [111, 112, 113, 114, 115]
+  auto_shift_when_new_year_added: true
+  note: "不要把年份寫死在 Agent 規則。新增較新的正式考題後，近 5 年視窗應自動往前移動。"
+
+question_count:
+  default_per_form: 20
+  ask_when_omitted: false
+  user_override_allowed: true
+  interpretation:
+    single_form: "使用者指定 N 題時，該份考卷共 N 題"
+    parallel_forms: "使用者指定 N 題且要求甲乙平行卷時，甲卷 N 題、乙卷 N 題"
+  validation:
+    minimum: 1
+    on_invalid: "若題數不是正整數才需要追問"
+  note: "20 題是預設值，不是硬限制；不得每次都先詢問題數。"
+
+blueprint_scaling:
+  baseline_items: 20
+  when_requested_items_differs_from_baseline:
+    - "先建立／讀取該命題領域的 20 題基準藍圖"
+    - "依指定題數按比例縮放核心考點、難度與認知層次配置"
+    - "整數化時優先採最大餘數法（largest remainder method）"
+    - "縮放後檢查是否不合理遺漏核心考點；必要時做最小幅度人工校正並留下理由"
+    - "不得只是把 20 題藍圖截短成前 N 題"
+  small_form_note: "題數很少時不強求每個子類別都出現，但應保留最核心且近 5 年最具代表性的考點。"
+
+formal_release_protection:
+  existing_formal_releases_are_immutable: true
+  note: "本政策只影響新的模擬測驗／新 review；不得回頭改寫 formal-v1.0。"
