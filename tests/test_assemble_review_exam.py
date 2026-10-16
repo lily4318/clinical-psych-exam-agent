@@ -3,14 +3,23 @@ from src.assemble_review_exam import assemble_review_release, load_review_manife
 
 def test_review_manifest_covers_all_pairs_once():
     manifest = load_review_manifest()
+    assert manifest["version"] == "review-v0.2"
     assert manifest["expected_pairs"] == [f"P{i:02d}" for i in range(1, 21)]
     assert len(manifest["batches"]) == 5
+    assert manifest["batches"] == [
+        "review/pilot_p01_p04_v0.2.json",
+        "review/pilot_p05_p08_v0.3.json",
+        "review/pilot_p09_p12_v0.3.json",
+        "review/pilot_p13_p16_v0.2.json",
+        "review/pilot_p17_p20_v0.3.json",
+    ]
     assert manifest["approved_by_user"] is False
 
 
 def test_canonical_review_release_passes_full_validation():
     form_a, form_b, report = assemble_review_release()
     assert report["ok"], report["errors"]
+    assert report["version"] == "review-v0.2"
     assert len(form_a["items"]) == 20
     assert len(form_b["items"]) == 20
     assert form_a["approved_by_user"] is False
