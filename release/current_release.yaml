@@ -1,10 +1,15 @@
-agent_state_version: 1
+agent_state_version: 2
 current_formal_release: formal-v1.0
 formal_manifest: release/formal_release_v1.0.yaml
 approval_record: release/approval_record_v1.0.md
 latest_review_release: review-v0.2
 review_manifest: review/release_manifest_v0.2.yaml
 topic: 物質濫用與依賴之心理衡鑑與心理治療
+storage:
+  persistent_source_of_truth: GitHub
+  repository: lily4318/clinical-psych-exam-agent
+  google_drive: deleted
+  note: 不再依賴或尋找任何舊 Google Drive 資料；若未來需要新增原始資料，應重新上傳或另行建立來源並明確記錄。
 forms:
   form_a: 甲卷 P01-P20
   form_b: 乙卷 P01-P20
