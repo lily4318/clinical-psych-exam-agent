@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from .load_blueprint import load_pair_source_requirements, load_parallel_blueprint
-from .load_exam_history import load_historical_index, load_knowledge_sources
+from .load_exam_history import load_knowledge_sources, load_recent_historical_index
 from .prompt_builder import build_pair_generation_request
 from .provider import target_answer_for
 from .source_context import build_source_context
@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def build_prompt_pack() -> list[dict]:
     pairs = load_parallel_blueprint()
     requirements = load_pair_source_requirements()
-    history = load_historical_index()
+    history = load_recent_historical_index(count=5)
     knowledge = load_knowledge_sources()
     pack: list[dict] = []
 
