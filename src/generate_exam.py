@@ -5,7 +5,11 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .load_blueprint import load_blueprint, load_parallel_blueprint
+from .load_blueprint import (
+    load_blueprint,
+    load_pair_source_requirements,
+    load_parallel_blueprint,
+)
 from .load_exam_history import (
     known_source_ids,
     load_answer_source_catalog,
@@ -40,6 +44,8 @@ def _validate_against_spec(
     allowed_source_ids: set[str] | None = None,
     historical_source_ids: set[str] | None = None,
     knowledge_source_ids: set[str] | None = None,
+    required_all_source_ids: set[str] | None = None,
+    required_any_source_ids: set[str] | None = None,
 ) -> list[str]:
     errors = validate_item(item, known_sources)
     expected = {
@@ -69,7 +75,31 @@ def _validate_against_spec(
     if knowledge_source_ids is not None and not (cited & knowledge_source_ids):
         errors.append("Item must cite at least one selected authoritative knowledge source.")
 
+    required_all = required_all_source_ids or set()
+    missing_required = sorted(required_all - cited)
+    if missing_required:
+        errors.append(
+            "Item is missing required core sources: " + ", ".join(missing_required)
+        )
+
+    required_any = required_any_source_ids or set()
+    if required_any and not (cited & required_any):
+        errors.append(
+            "Item must cite at least one of these core sources: "
+            + ", ".join(sorted(required_any))
+        )
+
     return errors
+
+
+def _source_rule_sets(
+    spec: dict[str, str],
+    source_requirements: dict[str, dict[str, list[str]]],
+) -> tuple[set[str], set[str], set[str]]:
+    rules = source_requirements[spec["pair_id"]]
+    required_all = set(rules.get("require_all") or [])
+    required_any = set(rules.get("require_any") or [])
+    return required_all, required_any, required_all | required_any
 
 
 def generate_form(
@@ -80,6 +110,7 @@ def generate_form(
     official_sources: list[dict[str, str]],
     answer_sources: list[dict[str, str]],
     knowledge_sources: list[dict[str, str]],
+    source_requirements: dict[str, dict[str, list[str]]],
     *,
     version: str = "0.2-source-backed-draft",
 ) -> dict[str, Any]:
@@ -96,7 +127,15 @@ def generate_form(
     items: list[dict] = []
 
     for spec in pairs:
-        context = build_source_context(spec, history, knowledge_sources)
+        required_all, required_any, required_context = _source_rule_sets(
+            spec, source_requirements
+        )
+        context = build_source_context(
+            spec,
+            history,
+            knowledge_sources,
+            required_source_ids=required_context,
+        )
         selected_source_ids = source_ids(context)
         allowed = set(selected_source_ids)
         selected_historical = allowed & historical_ids
@@ -116,6 +155,8 @@ def generate_form(
             allowed_source_ids=allowed,
             historical_source_ids=selected_historical,
             knowledge_source_ids=selected_knowledge,
+            required_all_source_ids=required_all,
+            required_any_source_ids=required_any,
         )
         if errors:
             raise ValueError(f"{item.get('item_id')}: " + "; ".join(errors))
@@ -154,6 +195,7 @@ def generate_parallel_drafts(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     load_blueprint()
     pairs = load_parallel_blueprint()
+    source_requirements = load_pair_source_requirements()
     history, official_sources, answer_sources, knowledge_sources = load_generation_data()
     provider = provider or StubQuestionProvider()
 
@@ -165,6 +207,7 @@ def generate_parallel_drafts(
         official_sources,
         answer_sources,
         knowledge_sources,
+        source_requirements,
         version=version,
     )
     form_b = generate_form(
@@ -175,6 +218,7 @@ def generate_parallel_drafts(
         official_sources,
         answer_sources,
         knowledge_sources,
+        source_requirements,
         version=version,
     )
     return form_a, form_b
@@ -188,6 +232,7 @@ def generate_parallel_pairs(
     """Generate both forms pair-by-pair so the model can enforce equivalence directly."""
     load_blueprint()
     pairs = load_parallel_blueprint()
+    source_requirements = load_pair_source_requirements()
     history, official_sources, answer_sources, knowledge_sources = load_generation_data()
     known = known_source_ids(
         history,
@@ -204,7 +249,15 @@ def generate_parallel_pairs(
     form_b_items: list[dict] = []
 
     for spec in pairs:
-        context = build_source_context(spec, history, knowledge_sources)
+        required_all, required_any, required_context = _source_rule_sets(
+            spec, source_requirements
+        )
+        context = build_source_context(
+            spec,
+            history,
+            knowledge_sources,
+            required_source_ids=required_context,
+        )
         selected_source_ids = source_ids(context)
         allowed = set(selected_source_ids)
         selected_historical = allowed & historical_ids
@@ -228,6 +281,8 @@ def generate_parallel_pairs(
                 allowed_source_ids=allowed,
                 historical_source_ids=selected_historical,
                 knowledge_source_ids=selected_knowledge,
+                required_all_source_ids=required_all,
+                required_any_source_ids=required_any,
             )
             if errors:
                 raise ValueError(
