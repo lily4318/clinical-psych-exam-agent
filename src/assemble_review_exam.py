@@ -23,7 +23,7 @@ from .load_exam_history import CATEGORY_LABELS, known_source_ids
 from .source_context import build_source_context, source_ids
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MANIFEST = ROOT / "review" / "release_manifest_v0.1.yaml"
+DEFAULT_MANIFEST = ROOT / "review" / "release_manifest_v0.2.yaml"
 
 
 def load_review_manifest(path: str | Path | None = None) -> dict[str, Any]:
@@ -178,7 +178,7 @@ def main() -> None:
         description="Assemble the canonical P01-P20 human-review release and validate it."
     )
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
-    parser.add_argument("--out", type=Path, default=ROOT / "output" / "review-v0.1")
+    parser.add_argument("--out", type=Path, default=ROOT / "output" / "review-v0.2")
     args = parser.parse_args()
 
     form_a, form_b, report = assemble_review_release(args.manifest)
