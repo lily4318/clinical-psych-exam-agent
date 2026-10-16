@@ -1,0 +1,12 @@
+version: 1
+levels:
+  基礎:
+    description: "可由核心知識辨識或單一步驟判斷作答。"
+  中等:
+    description: "需理解概念並在情境中進行一至兩步判斷。"
+  進階:
+    description: "需整合多項資訊、鑑別相近選項或進行臨床決策。"
+per_form_target:
+  基礎: 2
+  中等: 11
+  進階: 7
