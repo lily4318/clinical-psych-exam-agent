@@ -24,7 +24,7 @@ pairs:
   P11:
     require_all: [NIDA-PREVENTION-PRINCIPLES]
   P12:
-    require_any: [SAMHSA-TIP63, NIAAA-AUD-MEDS]
+    require_any: [SAMHSA-TIP63, NIAAA-AUD-MEDS, SAMHSA-NALTREXONE]
   P13:
     require_all: [APA-DSM5-SUD-CHANGES]
   P14:
