@@ -9,6 +9,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_BLUEPRINT = ROOT / "config" / "blueprint.yaml"
 DEFAULT_PARALLEL_BLUEPRINT = ROOT / "config" / "parallel_form_blueprint.csv"
+DEFAULT_SOURCE_REQUIREMENTS = ROOT / "config" / "pair_source_requirements.yaml"
 
 CATEGORY_CODES = tuple("ABCDEF")
 
@@ -80,3 +81,34 @@ def load_parallel_blueprint(path: str | Path | None = None) -> list[dict[str, st
             raise ValueError(f"Invalid cognitive level in {row['pair_id']}.")
 
     return rows
+
+
+def load_pair_source_requirements(
+    path: str | Path | None = None,
+) -> dict[str, dict[str, list[str]]]:
+    target = Path(path) if path else DEFAULT_SOURCE_REQUIREMENTS
+    with target.open("r", encoding="utf-8") as handle:
+        data = yaml.safe_load(handle)
+
+    if not isinstance(data, dict) or not isinstance(data.get("pairs"), dict):
+        raise ValueError("pair_source_requirements.yaml must contain a pairs mapping.")
+
+    expected_pairs = [f"P{i:02d}" for i in range(1, 21)]
+    if list(data["pairs"].keys()) != expected_pairs:
+        raise ValueError("Source requirements must define P01-P20 in order.")
+
+    result: dict[str, dict[str, list[str]]] = {}
+    for pair_id, rules in data["pairs"].items():
+        if not isinstance(rules, dict):
+            raise ValueError(f"{pair_id} source requirements must be a mapping.")
+        require_all = list(rules.get("require_all") or [])
+        require_any = list(rules.get("require_any") or [])
+        if not require_all and not require_any:
+            raise ValueError(f"{pair_id} must define require_all or require_any.")
+        if len(set(require_all + require_any)) != len(require_all + require_any):
+            raise ValueError(f"{pair_id} contains duplicate source requirements.")
+        result[pair_id] = {
+            "require_all": require_all,
+            "require_any": require_any,
+        }
+    return result
