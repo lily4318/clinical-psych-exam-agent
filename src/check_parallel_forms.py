@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any
 
+from .check_examinee_surface import check_item_surface
 from .validate_item import validate_item
 
 
@@ -45,6 +46,7 @@ def check_form(
     for item in items:
         for error in validate_item(item, known_sources):
             errors.append(f"{item.get('item_id', '<unknown>')}: {error}")
+        warnings.extend(check_item_surface(item))
 
     expected_category = {
         code: int(config["items_per_form"])
