@@ -7,12 +7,16 @@ from typing import Any
 
 from .load_blueprint import load_blueprint, load_parallel_blueprint
 from .load_exam_history import (
-    group_history_by_category,
     known_source_ids,
+    load_answer_source_catalog,
     load_historical_index,
+    load_knowledge_sources,
+    load_official_answer_keys,
     load_official_sources,
+    merge_history_with_answers,
 )
 from .provider import QuestionProvider, StubQuestionProvider
+from .source_context import build_source_context, source_ids
 from .validate_item import validate_item
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,21 +32,28 @@ def generate_form(
     pairs: list[dict[str, str]],
     history: list[dict[str, str]],
     official_sources: list[dict[str, str]],
+    answer_sources: list[dict[str, str]],
+    knowledge_sources: list[dict[str, str]],
     *,
-    version: str = "0.1-draft",
+    version: str = "0.2-source-backed-draft",
 ) -> dict[str, Any]:
-    grouped = group_history_by_category(history)
-    known = known_source_ids(history, official_sources)
+    known = known_source_ids(
+        history,
+        official_sources,
+        answer_sources,
+        knowledge_sources,
+    )
     items: list[dict] = []
 
     for spec in pairs:
-        history_rows = grouped.get(spec["category"], [])
-        source_ids = [row["item_id"] for row in history_rows[:3]]
+        context = build_source_context(spec, history, knowledge_sources)
+        selected_source_ids = source_ids(context)
         item = provider.generate_item(
             spec=spec,
             form=form,
             item_id=_item_id_for(spec, form),
-            source_ids=source_ids,
+            source_ids=selected_source_ids,
+            source_context=context,
         )
         errors = validate_item(item, known)
         if errors:
@@ -58,25 +69,62 @@ def generate_form(
     }
 
 
+def load_generation_data() -> tuple[
+    list[dict[str, str]],
+    list[dict[str, str]],
+    list[dict[str, str]],
+    list[dict[str, str]],
+]:
+    history = load_historical_index()
+    answers = load_official_answer_keys()
+    merged_history = merge_history_with_answers(history, answers)
+    return (
+        merged_history,
+        load_official_sources(),
+        load_answer_source_catalog(),
+        load_knowledge_sources(),
+    )
+
+
 def generate_parallel_drafts(
     provider: QuestionProvider | None = None,
     *,
-    version: str = "0.1-draft",
+    version: str = "0.2-source-backed-draft",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     load_blueprint()  # validates repository-level blueprint before generation
     pairs = load_parallel_blueprint()
-    history = load_historical_index()
-    official_sources = load_official_sources()
+    history, official_sources, answer_sources, knowledge_sources = load_generation_data()
     provider = provider or StubQuestionProvider()
 
-    form_a = generate_form("甲卷", provider, pairs, history, official_sources, version=version)
-    form_b = generate_form("乙卷", provider, pairs, history, official_sources, version=version)
+    form_a = generate_form(
+        "甲卷",
+        provider,
+        pairs,
+        history,
+        official_sources,
+        answer_sources,
+        knowledge_sources,
+        version=version,
+    )
+    form_b = generate_form(
+        "乙卷",
+        provider,
+        pairs,
+        history,
+        official_sources,
+        answer_sources,
+        knowledge_sources,
+        version=version,
+    )
     return form_a, form_b
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Generate structure-only parallel exam drafts. No API key is required."
+        description=(
+            "Generate source-backed structure drafts. The default provider is a STUB; "
+            "inject a real provider in Python for publishable item generation."
+        )
     )
     parser.add_argument(
         "--out",
@@ -84,7 +132,7 @@ def main() -> None:
         default=ROOT / "output",
         help="Directory for draft JSON files.",
     )
-    parser.add_argument("--version", default="0.1-draft")
+    parser.add_argument("--version", default="0.2-source-backed-draft")
     args = parser.parse_args()
 
     form_a, form_b = generate_parallel_drafts(version=args.version)
@@ -95,7 +143,7 @@ def main() -> None:
     (args.out / "form_b.stub.json").write_text(
         json.dumps(form_b, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    print(f"Wrote structure-only drafts to {args.out}")
+    print(f"Wrote source-backed structure drafts to {args.out}")
 
 
 if __name__ == "__main__":
