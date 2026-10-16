@@ -124,15 +124,20 @@ def build_source_context(
     history: list[dict[str, str]],
     knowledge_sources: list[dict[str, str]],
     *,
-    required_source_ids: Iterable[str] | None = None,
+    required_all_source_ids: Iterable[str] | None = None,
+    required_any_source_ids: Iterable[str] | None = None,
 ) -> list[dict[str, str]]:
     context: list[dict[str, str]] = []
+    required_all = set(required_all_source_ids or [])
+    required_any = set(required_any_source_ids or [])
+    required_context = required_all | required_any
 
     for row in select_history_sources(spec, history):
         context.append(
             {
                 "source_id": row["item_id"],
                 "kind": "historical_exam_index",
+                "requirement": "historical_support",
                 "title": f"{row['year']} 年 {row['source_item']} 歷屆考點索引",
                 "organization": "考選部（題目來源）／本 Agent 摘要索引",
                 "url": "",
@@ -143,12 +148,19 @@ def build_source_context(
     for row in select_knowledge_sources(
         spec,
         knowledge_sources,
-        required_source_ids=required_source_ids,
+        required_source_ids=required_context,
     ):
+        source_id = row["source_id"]
+        requirement = "supporting"
+        if source_id in required_all:
+            requirement = "required_all"
+        elif source_id in required_any:
+            requirement = "required_any"
         context.append(
             {
-                "source_id": row["source_id"],
+                "source_id": source_id,
                 "kind": row.get("source_type", "knowledge_source"),
+                "requirement": requirement,
                 "title": row.get("title", ""),
                 "organization": row.get("organization", ""),
                 "url": row.get("url", ""),
