@@ -9,6 +9,7 @@ pairs:
   P04:
     require_any: [NIAAA-MATCH-CBT, NIAAA-AUD-TREATMENT]
   P05:
+    require_all: [SAMHSA-PREV-LEVELS]
     require_any: [NIDA-PREVENTION-PRINCIPLES, MOJ-ANTIDRUG-STRATEGY3]
   P06:
     require_any: [APA-SUD-OVERVIEW, APA-DSM5-SUD-CHANGES]
