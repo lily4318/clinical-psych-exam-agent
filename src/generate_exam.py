@@ -13,10 +13,10 @@ from .load_blueprint import (
 from .load_exam_history import (
     known_source_ids,
     load_answer_source_catalog,
-    load_historical_index,
     load_knowledge_sources,
     load_official_answer_keys,
     load_official_sources,
+    load_recent_historical_index,
     merge_history_with_answers,
 )
 from .provider import (
@@ -176,7 +176,9 @@ def load_generation_data() -> tuple[
     list[dict[str, str]],
     list[dict[str, str]],
 ]:
-    history = load_historical_index()
+    # New simulation generation uses the latest five available exam years.
+    # Older indexed years remain in the repository for audit and formal-release history.
+    history = load_recent_historical_index(count=5)
     answers = load_official_answer_keys()
     merged_history = merge_history_with_answers(history, answers)
     return (
