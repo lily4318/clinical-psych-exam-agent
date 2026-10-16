@@ -86,17 +86,45 @@ def select_knowledge_sources(
     knowledge_sources: list[dict[str, str]],
     *,
     limit: int = 4,
+    required_source_ids: Iterable[str] | None = None,
 ) -> list[dict[str, str]]:
     domains = CATEGORY_DOMAINS.get(spec["category"], set())
     candidates = [row for row in knowledge_sources if row.get("domain") in domains]
     candidates.sort(key=lambda row: _knowledge_score(spec, row), reverse=True)
-    return candidates[:limit]
+
+    required = list(dict.fromkeys(required_source_ids or []))
+    by_id = {row.get("source_id"): row for row in knowledge_sources}
+    missing = [source_id for source_id in required if source_id not in by_id]
+    if missing:
+        raise ValueError(
+            f"{spec['pair_id']} required knowledge sources are missing: {', '.join(missing)}"
+        )
+
+    selected: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for source_id in required:
+        row = by_id[source_id]
+        selected.append(row)
+        seen.add(source_id)
+
+    for row in candidates:
+        source_id = row.get("source_id", "")
+        if source_id in seen:
+            continue
+        selected.append(row)
+        seen.add(source_id)
+        if len(selected) >= max(limit, len(required)):
+            break
+
+    return selected
 
 
 def build_source_context(
     spec: dict[str, str],
     history: list[dict[str, str]],
     knowledge_sources: list[dict[str, str]],
+    *,
+    required_source_ids: Iterable[str] | None = None,
 ) -> list[dict[str, str]]:
     context: list[dict[str, str]] = []
 
@@ -112,7 +140,11 @@ def build_source_context(
             }
         )
 
-    for row in select_knowledge_sources(spec, knowledge_sources):
+    for row in select_knowledge_sources(
+        spec,
+        knowledge_sources,
+        required_source_ids=required_source_ids,
+    ):
         context.append(
             {
                 "source_id": row["source_id"],
