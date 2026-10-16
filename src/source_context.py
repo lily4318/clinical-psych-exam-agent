@@ -9,7 +9,16 @@ CATEGORY_DOMAINS = {
     "C": {"MI"},
     "D": {"CBT"},
     "E": {"NEURO", "PHARM"},
-    "F": {"ASSESSMENT", "CBT"},
+    "F": {"PREVENTION", "ASSESSMENT", "CBT"},
+}
+
+PRIMARY_DOMAIN = {
+    "A": "DSM",
+    "B": "ASSESSMENT",
+    "C": "MI",
+    "D": "CBT",
+    "E": "NEURO",
+    "F": "PREVENTION",
 }
 
 
@@ -32,6 +41,24 @@ def _history_score(spec: dict[str, str], row: dict[str, str]) -> tuple[int, int]
     except ValueError:
         year = 0
     return score, year
+
+
+def _knowledge_score(spec: dict[str, str], row: dict[str, str]) -> tuple[int, int]:
+    haystack = " ".join(
+        [
+            row.get("title", ""),
+            row.get("usage_notes", ""),
+            row.get("organization", ""),
+        ]
+    ).lower()
+    relevance = sum(
+        3 if term in haystack else 0
+        for term in _terms(spec.get("core_topic", ""))
+    )
+    if row.get("domain") == PRIMARY_DOMAIN.get(spec.get("category")):
+        relevance += 2
+    authority_rank = {"high": 3, "medium_high": 2, "medium": 1}
+    return relevance, authority_rank.get(row.get("authority", ""), 0)
 
 
 def select_history_sources(
@@ -62,12 +89,7 @@ def select_knowledge_sources(
 ) -> list[dict[str, str]]:
     domains = CATEGORY_DOMAINS.get(spec["category"], set())
     candidates = [row for row in knowledge_sources if row.get("domain") in domains]
-
-    authority_rank = {"high": 3, "medium_high": 2, "medium": 1}
-    candidates.sort(
-        key=lambda row: authority_rank.get(row.get("authority", ""), 0),
-        reverse=True,
-    )
+    candidates.sort(key=lambda row: _knowledge_score(spec, row), reverse=True)
     return candidates[:limit]
 
 
