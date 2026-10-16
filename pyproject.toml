@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "clinical-psych-exam-agent"
-version = "0.1.0"
-description = "Executable blueprint, validation and export pipeline for a Taiwan clinical psychologist exam question agent."
+version = "0.2.0"
+description = "Executable, source-grounded blueprint, validation and export pipeline for a Taiwan clinical psychologist exam question agent."
 requires-python = ">=3.11"
 dependencies = [
   "PyYAML>=6.0",
@@ -15,11 +15,20 @@ dependencies = [
 test = [
   "pytest>=8.0",
 ]
+openai = [
+  "openai",
+]
+all = [
+  "pytest>=8.0",
+  "openai",
+]
 
 [project.scripts]
 clinical-psych-exam-draft = "src.generate_exam:main"
 clinical-psych-exam-export = "src.export_exam:main"
 clinical-psych-exam-check = "src.check_parallel_forms:main"
+clinical-psych-exam-prompts = "src.export_prompt_pack:main"
+clinical-psych-exam-openai = "src.run_openai_generation:main"
 
 [tool.setuptools]
 packages = ["src"]
