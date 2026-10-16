@@ -6,8 +6,10 @@
 
 - 歷屆範圍：民國 110–115 年
 - 已索引成癮／物質使用相關考點：74 個
+- 已建立官方答案狀態：71 題選擇題＋3 題申論題
 - 目標輸出：甲卷、乙卷各 20 題四選一單選題
 - 平行卷：20 組配對題槽位（P01–P20）
+- 生成策略：每次以一組 Pxx 同時生成甲乙兩題，直接控制等值性
 - 最終核可：使用者
 
 ## 每卷 20 題藍圖
@@ -26,14 +28,19 @@
 
 ## Repository 角色
 
-GitHub 是 Agent 的正式版本庫，保存提示詞、命題藍圖、歷屆考點索引、品質規則、資料結構與執行程式。Google Drive 保留官方 PDF、教材、文獻與原始工作檔。
+GitHub 是 Agent 的正式版本庫，保存提示詞、命題藍圖、歷屆考點索引、官方答案索引、權威知識來源、品質規則、資料結構與執行程式。Google Drive 保留官方 PDF、教材、文獻與原始工作檔。
+
+若 GitHub 與 Google Drive 的命題規格不一致，以 GitHub 的 `config/` 正式版本為準，再視需要回寫 Drive 工作文件。
 
 ## 目錄
 
 - `agent/`：Agent 角色與工作規則
 - `config/`：命題藍圖、平行卷規格、難度與來源優先序
-- `data/`：110–115 歷屆考點索引與官方來源
-- `src/`：可執行的載入、產題介面、驗證、等值檢查與匯出流程
+- `data/historical_exam_index.csv`：110–115 年 74 個歷屆考點摘要索引
+- `data/official_answer_keys.csv`：74 個索引題目的官方答案狀態
+- `data/answer_source_catalog.csv`：考選部標準答案／更正答案來源
+- `data/knowledge_sources.csv`：DSM、MI、CBT/RP、衡鑑、神經機制、藥理與臺灣政策權威來源索引
+- `src/`：載入、來源選擇、Prompt、Provider、驗證、等值檢查與匯出流程
 - `schemas/`：題目與考卷 JSON Schema
 - `tests/`：pytest 自動測試與品質檢核案例
 - `docs/`：Google Drive 原始資料位置與工作流程
@@ -62,7 +69,22 @@ python -m src.generate_exam --out output
 
 會建立 `form_a.stub.json` 與 `form_b.stub.json`。這些題目只有結構用途，題幹與解析均標示 `[STUB]`，不可作為正式考題。
 
-### 2. 驗證甲乙卷
+### 2. 匯出 20 組 source-grounded 產題請求
+
+```bash
+python -m src.export_prompt_pack --out output/pair_generation_requests.json
+```
+
+每個 P01–P20 request 都包含：
+
+- 甲乙卷共同考點
+- 難度與認知層次
+- 甲乙卷各自指定的正確答案位置
+- 最相關的歷屆考點摘要
+- 對應的權威知識來源
+- 禁止近似改寫歷屆題、禁止無來源補造內容等限制
+
+### 3. 驗證甲乙卷
 
 ```bash
 python -m src.check_parallel_forms output/form_a.stub.json output/form_b.stub.json
@@ -77,9 +99,10 @@ python -m src.check_parallel_forms output/form_a.stub.json output/form_b.stub.js
 - P01–P20 是否一一對應
 - 平行題的類別、難度與認知層次是否一致
 - 甲乙卷題幹是否意外完全相同
-- 答案位置分布是否過度失衡或有長串規律
+- 來源 ID 是否存在於正式索引
+- 答案位置是否過度失衡或有長串規律
 
-### 3. 匯出 Markdown
+### 4. 匯出 Markdown
 
 ```bash
 python -m src.export_exam output/form_a.stub.json --out output
@@ -87,17 +110,60 @@ python -m src.export_exam output/form_a.stub.json --out output
 
 會輸出考卷 Markdown、答案解析 Markdown 與 JSON。
 
-## 正式題目供應器
+## 使用 OpenAI Responses API 產生草稿
 
-`src/provider.py` 定義 `QuestionProvider` 介面。目前內建 `StubQuestionProvider`，目的是讓整個 Agent 在沒有任何 API key 的情況下仍可測試。
+這是可選功能。API key 與模型名稱都不會寫入 repository。
 
-正式接入模型時，只需實作：
+安裝：
 
-```python
-generate_item(spec, form, item_id, source_ids) -> dict
+```bash
+pip install -e ".[test,openai]"
 ```
 
-回傳內容需符合 `schemas/item.schema.json`。API key 應透過環境變數或秘密管理服務提供，禁止寫入 repository。
+設定環境變數：
+
+```bash
+# macOS / Linux
+export OPENAI_API_KEY="..."
+export OPENAI_MODEL="<你要使用且帳號可存取的模型>"
+
+# Windows PowerShell
+$env:OPENAI_API_KEY="..."
+$env:OPENAI_MODEL="<你要使用且帳號可存取的模型>"
+```
+
+執行：
+
+```bash
+python -m src.run_openai_generation --out output/openai-draft
+```
+
+或安裝後直接執行：
+
+```bash
+clinical-psych-exam-openai --out output/openai-draft
+```
+
+流程會依序：
+
+1. 讀取正式藍圖與 P01–P20。
+2. 為每組題目選出最相關的歷屆考點摘要與權威來源。
+3. 一次要求模型生成同一 Pxx 的甲乙兩題。
+4. 強制核對題號、類別、難度、認知層次與指定答案位置。
+5. 執行整份甲乙卷等值檢核。
+6. 若有 error，停止正式匯出並保留 `parallel_form_check.json`。
+7. 只有通過結構檢核後，才輸出 JSON、考卷 Markdown 與答案解析 Markdown。
+
+即使程式檢核通過，產出的內容仍只屬「草稿」，不會自動變成「已核可」。
+
+## 正式題目供應器架構
+
+`src/provider.py` 提供兩種主要接法：
+
+- `CallbackQuestionProvider`：一次生成一題。
+- `CallbackPairQuestionProvider`：一次生成同一 Pxx 的甲乙兩題；正式出題優先使用此方式。
+
+`src/openai_provider.py` 則把 OpenAI Responses API 包成 JSON callback。repo 不綁死任何模型名稱，也不保存 API key。
 
 ## 核心原則
 
@@ -107,4 +173,5 @@ generate_item(spec, form, item_id, source_ids) -> dict
 4. DSM、MI、CBT/RP、生理心理機制等關鍵內容必須有可靠來源。
 5. 不確定的資訊標記為待查證，不可自行補造。
 6. 每題應有單一最佳答案、逐項解析與來源依據。
-7. 自動檢核通過不等於內容已核可；最終版本仍需由使用者人工核可。
+7. 程式自動檢核只處理可形式化規則；內容正確性與題目品質仍需人工複核。
+8. 最終發布前必須由使用者人工核可。
