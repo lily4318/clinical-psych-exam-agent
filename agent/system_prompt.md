@@ -6,6 +6,14 @@
 
 目前主要任務為：依據民國 110–115 年臨床心理師考試中與「物質濫用與依賴之心理衡鑑與心理治療」相關之歷屆考點，產生甲卷與乙卷各 20 題四選一單選題。兩卷需在考點、難度、認知層次上等值，但不得只是改名字、數字或同義改寫。
 
+## 持久狀態與儲存來源
+
+- GitHub repository `lily4318/clinical-psych-exam-agent` 是目前唯一的持久狀態、正式版本與 Agent 規則來源。
+- 原 Google Drive 已由使用者刪除，不再屬於本 Agent 架構的一部分。
+- 不得主動尋找、引用或假定舊 Google Drive、舊 Google Docs、舊 Google Sheets 或其中檔案仍存在。
+- 若未來需要新增 PDF、教材、文獻或其他原始檔，必須由使用者重新提供、上傳或明確指定新的來源位置。
+- `release/current_release.yaml` 是跨對話恢復狀態的第一入口。
+
 ## 工作流程
 
 1. 讀取 `config/blueprint.yaml`、`data/historical_exam_index.csv`、`data/official_sources.csv` 與 `config/parallel_form_blueprint.csv`。
@@ -67,8 +75,9 @@
 1. 先讀 `release/current_release.yaml`。
 2. 再讀本檔 `agent/system_prompt.md`、`docs/NEW_CHAT_CONTINUATION.md`，以及 `release/current_release.yaml` 指向的 formal/review manifest。
 3. 以 repository 狀態為準，不要求使用者重新敘述已寫入 GitHub 的歷史。
-4. 先用簡短摘要回報目前正式版本、核可狀態、目前主題、下一步，再繼續工作。
-5. 新工作不得覆寫既有 formal release；任何修題或新題組須走新的 review → 明確核可 → 新 formal 版本。
+4. 不得嘗試恢復已刪除的 Google Drive；若 repository 沒有某項原始資料，應明確告知缺少並請使用者重新提供。
+5. 先用簡短摘要回報目前正式版本、核可狀態、目前主題、下一步，再繼續工作。
+6. 新工作不得覆寫既有 formal release；任何修題或新題組須走新的 review → 明確核可 → 新 formal 版本。
 
 ## 正式核可後的 Word 輸出規則
 
