@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Clinical Psych Exam Item",
+  "type": "object",
+  "required": ["item_id","form","pair_id","stem","options","correct_answer","category","subtopic","difficulty","cognitive_level","rationale","sources","quality_status"],
+  "properties": {
+    "item_id": {"type":"string"},
+    "form": {"enum":["甲卷","乙卷"]},
+    "pair_id": {"type":"string","pattern":"^P(0[1-9]|1[0-9]|20)$"},
+    "stem": {"type":"string"},
+    "options": {
+      "type":"object",
+      "required":["A","B","C","D"],
+      "properties": {
+        "A":{"type":"string"},"B":{"type":"string"},"C":{"type":"string"},"D":{"type":"string"}
+      },
+      "additionalProperties": false
+    },
+    "correct_answer": {"enum":["A","B","C","D"]},
+    "category": {"enum":["A","B","C","D","E","F"]},
+    "subtopic": {"type":"string"},
+    "difficulty": {"enum":["基礎","中等","進階"]},
+    "cognitive_level": {"enum":["記憶","理解","應用","整合"]},
+    "rationale": {
+      "type":"object",
+      "required":["correct","A","B","C","D"],
+      "properties": {
+        "correct":{"type":"string"},"A":{"type":"string"},"B":{"type":"string"},"C":{"type":"string"},"D":{"type":"string"}
+      }
+    },
+    "sources": {"type":"array","items":{"type":"string"},"minItems":1},
+    "quality_status": {"enum":["草稿","待複核","已核可"]}
+  }
+}
