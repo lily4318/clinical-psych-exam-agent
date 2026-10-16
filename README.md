@@ -1,20 +1,39 @@
 # Clinical Psychologist Exam Agent
 
-用於建立臺灣臨床心理師國考風格之模擬試題，現階段聚焦於「物質濫用與依賴之心理衡鑑與心理治療」。
+用於建立臺灣臨床心理師國考風格之模擬試題，目前聚焦於「物質濫用與依賴之心理衡鑑與心理治療」。
 
-## 目前版本
+## 目前正式狀態
 
 - 歷屆範圍：民國 110–115 年
 - 已索引成癮／物質使用相關考點：74 個
-- 已建立官方答案狀態：71 題選擇題＋3 題申論題
-- 目標輸出：甲卷、乙卷各 20 題四選一單選題
-- 平行卷：20 組配對題槽位（P01–P20）
-- 目前正式核可 release：`formal-v1.0`（來源 `review-v0.2`；甲乙卷各 20 題，共 40 題；2026-10-16 經使用者正式核可）
-- 目前歷史人工審閱 release：`review-v0.2`（保留原始待複核 metadata，不覆寫）
-- 生成策略：每次以一組 Pxx 同時生成甲乙兩題，直接控制等值性
-- 最終核可：使用者
+- 正式核可版本：`formal-v1.0`
+- 來源審閱版本：`review-v0.2`
+- 正式核可日期：2026-10-16
+- 核可範圍：甲卷 P01–P20、乙卷 P01–P20，共 40 題
+- 最終核可權：使用者
 
-## 每卷 20 題藍圖
+目前狀態入口：`release/current_release.yaml`。
+
+## 唯一持久來源
+
+**GitHub repository `lily4318/clinical-psych-exam-agent` 是目前唯一的持久狀態、正式版本與 Agent 規則來源。**
+
+原 Google Drive 已由使用者刪除，不再屬於本 Agent 架構的一部分。Agent 不得假定舊 Google Drive、Google Docs、Google Sheets 或其中原始檔仍存在。若未來需要新的 PDF、教材、文獻或其他原始檔，必須重新上傳、提供新來源，或另行指定新的持久儲存位置。
+
+## 新對話接續
+
+換新 ChatGPT 對話時，不需要重新敘述整個專案。先讓 Agent 讀：
+
+1. `release/current_release.yaml`
+2. `agent/system_prompt.md`
+3. `docs/NEW_CHAT_CONTINUATION.md`
+4. `current_release` 指向的 formal／review manifest
+
+建議在新對話貼上：
+
+> 請接續我的「臨床心理師考題 Agent」。GitHub repo 是 lily4318/clinical-psych-exam-agent。請先讀 release/current_release.yaml、agent/system_prompt.md、docs/NEW_CHAT_CONTINUATION.md，以及 current_release 指向的 formal/review manifest，再告訴我目前正式版本、進行狀態與可繼續的下一步。GitHub 是目前唯一持久來源；不要依賴舊對話記憶，也不要尋找已刪除的 Google Drive。
+
+## 每卷藍圖
 
 | 類別 | 題數 |
 |---|---:|
@@ -25,205 +44,73 @@
 | E 生理心理機制、藥理、耐受／戒斷與獎賞系統 | 4 |
 | F 三級預防、社區／家庭、政策與整合處遇 | 3 |
 
-難度目標：基礎 2／中等 11／進階 7。  
-認知層次目標：記憶 2／理解 8／應用 7／整合 3。
+難度：基礎 2／中等 11／進階 7。  
+認知層次：記憶 2／理解 8／應用 7／整合 3。
 
-## Repository 角色
+## 版本治理
 
-GitHub 是 Agent 的正式版本庫，保存提示詞、命題藍圖、歷屆考點索引、官方答案索引、權威知識來源、品質規則、資料結構與執行程式。Google Drive 保留官方 PDF、教材、文獻與原始工作檔。
+`release/formal_release_v1.0.yaml` 以 Git blob SHA 鎖定正式核可當下的五個題組。既有 formal release 不得覆寫。
 
-若 GitHub 與 Google Drive 的命題規格不一致，以 GitHub 的 `config/` 正式版本為準，再視需要回寫 Drive 工作文件。
+未來若修改題目、增加新主題或建立新卷，流程固定為：
 
-## 目錄
+1. 建立新的 review 版本；
+2. 完成人工審閱與品質檢核；
+3. 使用者明確表示「核可／正式核可／批准」；
+4. 建立新的 formal 版本。
 
-- `agent/`：Agent 角色與工作規則
-- `config/`：命題藍圖、平行卷規格、pair-specific 核心來源、難度與來源優先序
-- `data/historical_exam_index.csv`：110–115 年 74 個歷屆考點摘要索引
-- `data/official_answer_keys.csv`：74 個索引題目的官方答案狀態
-- `data/answer_source_catalog.csv`：考選部標準答案／更正答案來源
-- `data/knowledge_sources.csv`：DSM、MI、CBT/RP、衡鑑、神經機制、藥理與臺灣政策權威來源索引
-- `review/`：具版本價值的人工審閱題、reviewer 報告、review manifest 與 release notes
-- `release/`：使用者正式核可版本；以 manifest 與 Git blob SHA 凍結核可內容
-- `src/`：載入、來源選擇、Prompt、Provider、驗證、等值檢查、review 組卷與匯出流程
+「可以」、「差不多可以」、「看起來不錯」、「繼續」不構成正式核可。
+
+## Word 輸出規則
+
+正式核可後：
+
+- 若使用者已經要求 Word，Agent 直接輸出，不再重問。
+- 若尚未要求 Word，Agent 必須主動詢問一次是否輸出 Word。
+- 預設輸出三個 `.docx`：甲卷、乙卷、答案與解析。
+- Word 必須依 manifest 鎖定內容產生，檔名包含正式版本號，且交付前需做版面 QA。
+
+詳細規則：`agent/word_export_policy.md`。
+
+## Repository 目錄
+
+- `agent/`：Agent 角色、system prompt、reviewer 與 Word 輸出規則
+- `config/`：命題藍圖、平行卷規格、來源要求
+- `data/`：歷屆考點、官方答案與知識來源索引
+- `review/`：人工審閱題組、manifest、reviewer 紀錄與測試報告
+- `release/`：正式核可版本與 current release 狀態
+- `src/`：載入、來源選擇、Prompt、驗證、組卷與匯出流程
 - `schemas/`：題目與考卷 JSON Schema
-- `tests/`：pytest 自動測試與品質檢核案例
-- `docs/`：Google Drive 原始資料位置與工作流程
-- `output/`：本機產出的草稿考卷與解析；產物預設不提交 Git
+- `tests/`：pytest 品質檢核案例
+- `docs/`：跨對話接續等操作文件
+- `output/`：本機產出；預設不提交 Git
 
-## 快速開始
-
-建議 Python 3.11 以上。
-
-```bash
-python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# macOS / Linux
-source .venv/bin/activate
-
-pip install -e ".[test]"
-pytest
-```
-
-## 正式核可版本（formal-v1.0）
-
-`release/formal_release_v1.0.yaml` 是目前正式核可版本入口。它由 `review-v0.2` 升版而來，核可範圍為甲卷 P01–P20 與乙卷 P01–P20，共 40 題。
-
-正式 manifest 同時記錄來源 review manifest SHA 與五個題組檔的 Git blob SHA，因此 `formal-v1.0` 所代表的題目內容已凍結。任何未來修訂都必須建立新的 review 版本，再經使用者明確核可後建立新的 formal 版本，不得直接覆寫既有正式版。
-
-核可紀錄：`release/approval_record_v1.0.md`。
-
-## 完整人工審閱版（review-v0.2）
-
-`review/release_manifest_v0.2.yaml` 是 P01–P20 的歷史 canonical 審閱入口。它固定指向：
-
-- P01–P04 v0.2
-- P05–P08 v0.3
-- P09–P12 v0.3
-- P13–P16 v0.2
-- P17–P20 v0.3
-
-相較 review-v0.1，本版增加「考生視角」難度複核，特別修訂：
-
-- P07：從單純耐受／戒斷名詞辨識改為醫療使用、OUD 診斷邊界與負向強化判讀。
-- P09：要求區分 lapse、relapse 與 lapse 後的 AVE，而非看到關鍵詞直接作答。
-- P12：改為 OUD／AUD 真實用藥條件與 naltrexone 的 opioid 安全限制。
-- P17：干擾選項改為「部分正確但過度推論」，要求區分延宕折扣的關聯、診斷與因果推論邊界。
-
-組成完整甲乙審閱卷：
-
-```bash
-clinical-psych-review-build
-```
-
-或：
+## 常用命令
 
 ```bash
 python -m src.assemble_review_exam
-```
-
-組卷器在輸出完整卷前會重新檢查：P01–P20 是否完整、每卷 20 題、A–F 分布 4/3/2/4/4/3、難度 2/11/7、認知層次 2/8/7/3、指定答案位置、甲乙卷平行結構、歷屆來源、pair-specific 核心權威來源。任一硬性檢核失敗就不輸出完整審閱卷。
-
-為保存審閱歷史，`review-v0.2` 原始檔仍維持建立時的 `approved_by_user=false` 與 `待複核`；其正式核可狀態由 `release/formal_release_v1.0.yaml` 獨立記錄。
-
-### 1. 產生結構測試版甲乙卷
-
-```bash
-python -m src.generate_exam --out output
-```
-
-會建立 `form_a.stub.json` 與 `form_b.stub.json`。這些題目只有結構用途，題幹與解析均標示 `[STUB]`，不可作為正式考題。
-
-### 2. 匯出 20 組 source-grounded 產題請求
-
-```bash
-python -m src.export_prompt_pack --out output/pair_generation_requests.json
-```
-
-每個 P01–P20 request 都包含：
-
-- 甲乙卷共同考點
-- 難度與認知層次
-- 甲乙卷各自指定的正確答案位置
-- 最相關的歷屆考點摘要
-- 對應的權威知識來源
-- pair-specific 必須引用的核心來源
-- 禁止近似改寫歷屆題、禁止無來源補造內容等限制
-
-### 3. 驗證甲乙卷
-
-```bash
 python -m src.check_parallel_forms output/form_a.stub.json output/form_b.stub.json
-```
-
-檢查項目包括：
-
-- 每卷是否恰為 20 題
-- A–F 類別配置是否為 4/3/2/4/4/3
-- 難度是否為 2/11/7
-- 認知層次是否為 2/8/7/3
-- P01–P20 是否一一對應
-- 平行題的類別、難度與認知層次是否一致
-- 甲乙卷題幹是否意外完全相同
-- 來源 ID 是否存在於正式索引
-- 答案位置是否過度失衡或有長串規律
-
-### 4. 匯出 Markdown
-
-```bash
 python -m src.export_exam output/form_a.stub.json --out output
 ```
 
-會輸出考卷 Markdown、答案解析 Markdown 與 JSON。
-
-## 使用 OpenAI Responses API 產生草稿
-
-這是可選功能。API key 與模型名稱都不會寫入 repository。
-
-安裝：
+安裝後亦可使用：
 
 ```bash
-pip install -e ".[test,openai]"
+clinical-psych-review-build
+clinical-psych-exam-check
+clinical-psych-exam-export
+clinical-psych-user-review
 ```
-
-設定環境變數：
-
-```bash
-# macOS / Linux
-export OPENAI_API_KEY="..."
-export OPENAI_MODEL="<你要使用且帳號可存取的模型>"
-
-# Windows PowerShell
-$env:OPENAI_API_KEY="..."
-$env:OPENAI_MODEL="<你要使用且帳號可存取的模型>"
-```
-
-執行：
-
-```bash
-python -m src.run_openai_generation --out output/openai-draft
-```
-
-或安裝後直接執行：
-
-```bash
-clinical-psych-exam-openai --out output/openai-draft
-```
-
-流程會依序：
-
-1. 讀取正式藍圖與 P01–P20。
-2. 為每組題目選出最相關的歷屆考點摘要與權威來源。
-3. 一次要求模型生成同一 Pxx 的甲乙兩題。
-4. 強制核對題號、類別、難度、認知層次、指定答案位置與 pair-specific 核心來源。
-5. 執行整份甲乙卷等值檢核。
-6. 若有 error，停止正式匯出並保留 `parallel_form_check.json`。
-7. 只有通過結構檢核後，才輸出 JSON、考卷 Markdown 與答案解析 Markdown。
-
-即使程式檢核通過，新生成內容仍只屬「草稿」，不會自動變成「已核可」。
-
-## 正式題目供應器架構
-
-`src/provider.py` 提供兩種主要接法：
-
-- `CallbackQuestionProvider`：一次生成一題。
-- `CallbackPairQuestionProvider`：一次生成同一 Pxx 的甲乙兩題；正式出題優先使用此方式。
-
-`src/openai_provider.py` 則把 OpenAI Responses API 包成 JSON callback。repo 不綁死任何模型名稱，也不保存 API key。
 
 ## GitHub Actions 狀態
 
-此 private repository 目前在 GitHub Actions 建立 job 前會回傳 `startup_failure`。為避免每次 push 都產生無意義的失敗紀錄，自動 push trigger 暫時停用，只保留手動 `workflow_dispatch`。待 repository／account 的 Actions 執行設定排除後，再恢復自動 CI。
-
-這不代表 pytest 已在 GitHub runner 上通過；repo 內仍保留完整 pytest 測試，包含 canonical review release 的 P01–P20 組卷測試。
+此 private repository 先前在 GitHub Actions 建立 job 前出現 `startup_failure`，因此自動 push trigger 暫停，只保留手動 `workflow_dispatch`。這不代表 pytest 已在 GitHub runner 上通過；在實際成功執行前不得宣稱 CI／tests 已通過。
 
 ## 核心原則
 
 1. 先建立藍圖，再出題。
-2. 不直接改寫歷屆題原文，只抽取考點與命題風格。
+2. 不直接重製歷屆題原文，只抽取考點與命題風格。
 3. 甲乙卷同考點、同認知層次、同目標難度，但採不同情境。
 4. DSM、MI、CBT/RP、生理心理機制等關鍵內容必須有可靠來源。
-5. 不確定的資訊標記為待查證，不可自行補造。
-6. 每題應有單一最佳答案、逐項解析與來源依據。
-7. 程式自動檢核只處理可形式化規則；內容正確性與題目品質仍需人工複核。
-8. 正式發布前必須由使用者人工核可；已核可版本不得無版本號直接覆寫。
+5. 不確定資訊標記為待查證，不自行補造。
+6. 每題需有單一最佳答案、逐項解析與來源依據。
+7. 自動檢核不等於人工核可；正式發布必須由使用者明確核可。
