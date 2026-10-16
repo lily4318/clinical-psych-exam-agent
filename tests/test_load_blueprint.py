@@ -3,6 +3,7 @@ from src.load_blueprint import (
     load_pair_source_requirements,
     load_parallel_blueprint,
 )
+from src.load_exam_history import load_knowledge_sources
 
 
 def test_blueprint_totals_match_20_items():
@@ -36,3 +37,14 @@ def test_pair_source_requirements_cover_p01_to_p20():
         "PUBMED-DELAY-DISCOUNT-2011",
         "NIDA-ADDICTION-SCIENCE",
     }
+
+
+def test_pair_source_requirements_reference_existing_knowledge_sources():
+    rules = load_pair_source_requirements()
+    known = {row["source_id"] for row in load_knowledge_sources()}
+    required = {
+        source_id
+        for rule in rules.values()
+        for source_id in rule["require_all"] + rule["require_any"]
+    }
+    assert required <= known
