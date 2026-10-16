@@ -21,19 +21,83 @@
 | E 生理心理機制、藥理、耐受／戒斷與獎賞系統 | 4 |
 | F 三級預防、社區／家庭、政策與整合處遇 | 3 |
 
+難度目標：基礎 2／中等 11／進階 7。  
+認知層次目標：記憶 2／理解 8／應用 7／整合 3。
+
 ## Repository 角色
 
-GitHub 是 Agent 的正式版本庫，保存提示詞、命題藍圖、歷屆考點索引、品質規則、資料結構與未來程式碼。Google Drive 保留官方 PDF、教材、文獻與原始工作檔。
+GitHub 是 Agent 的正式版本庫，保存提示詞、命題藍圖、歷屆考點索引、品質規則、資料結構與執行程式。Google Drive 保留官方 PDF、教材、文獻與原始工作檔。
 
 ## 目錄
 
 - `agent/`：Agent 角色與工作規則
-- `config/`：命題藍圖、難度與來源優先序
+- `config/`：命題藍圖、平行卷規格、難度與來源優先序
 - `data/`：110–115 歷屆考點索引與官方來源
-- `schemas/`：題目與考卷資料結構
-- `tests/`：品質檢核案例與規則
+- `src/`：可執行的載入、產題介面、驗證、等值檢查與匯出流程
+- `schemas/`：題目與考卷 JSON Schema
+- `tests/`：pytest 自動測試與品質檢核案例
 - `docs/`：Google Drive 原始資料位置與工作流程
-- `output/`：未來產出的考卷與解析
+- `output/`：本機產出的草稿考卷與解析；產物預設不提交 Git
+
+## 快速開始
+
+建議 Python 3.11 以上。
+
+```bash
+python -m venv .venv
+# Windows
+.venv\Scripts\activate
+# macOS / Linux
+source .venv/bin/activate
+
+pip install -e ".[test]"
+pytest
+```
+
+### 1. 產生結構測試版甲乙卷
+
+```bash
+python -m src.generate_exam --out output
+```
+
+會建立 `form_a.stub.json` 與 `form_b.stub.json`。這些題目只有結構用途，題幹與解析均標示 `[STUB]`，不可作為正式考題。
+
+### 2. 驗證甲乙卷
+
+```bash
+python -m src.check_parallel_forms output/form_a.stub.json output/form_b.stub.json
+```
+
+檢查項目包括：
+
+- 每卷是否恰為 20 題
+- A–F 類別配置是否為 4/3/2/4/4/3
+- 難度是否為 2/11/7
+- 認知層次是否為 2/8/7/3
+- P01–P20 是否一一對應
+- 平行題的類別、難度與認知層次是否一致
+- 甲乙卷題幹是否意外完全相同
+- 答案位置分布是否過度失衡或有長串規律
+
+### 3. 匯出 Markdown
+
+```bash
+python -m src.export_exam output/form_a.stub.json --out output
+```
+
+會輸出考卷 Markdown、答案解析 Markdown 與 JSON。
+
+## 正式題目供應器
+
+`src/provider.py` 定義 `QuestionProvider` 介面。目前內建 `StubQuestionProvider`，目的是讓整個 Agent 在沒有任何 API key 的情況下仍可測試。
+
+正式接入模型時，只需實作：
+
+```python
+generate_item(spec, form, item_id, source_ids) -> dict
+```
+
+回傳內容需符合 `schemas/item.schema.json`。API key 應透過環境變數或秘密管理服務提供，禁止寫入 repository。
 
 ## 核心原則
 
@@ -43,4 +107,4 @@ GitHub 是 Agent 的正式版本庫，保存提示詞、命題藍圖、歷屆考
 4. DSM、MI、CBT/RP、生理心理機制等關鍵內容必須有可靠來源。
 5. 不確定的資訊標記為待查證，不可自行補造。
 6. 每題應有單一最佳答案、逐項解析與來源依據。
-7. 最終版本需由使用者核可。
+7. 自動檢核通過不等於內容已核可；最終版本仍需由使用者人工核可。
