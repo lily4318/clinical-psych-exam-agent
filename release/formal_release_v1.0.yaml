@@ -1,0 +1,58 @@
+version: formal-v1.0
+status: 已核可
+approved_by_user: true
+quality_status: 已核可
+approval_date: 2026-10-16
+approval_scope:
+  - 甲卷 P01-P20
+  - 乙卷 P01-P20
+source_review_release:
+  version: review-v0.2
+  manifest: review/release_manifest_v0.2.yaml
+  manifest_blob_sha: 4c7378f8d94e33f449007f8fc604c1c2eca11d9b
+approval_statement: "正式核可 review-v0.2 甲卷與乙卷"
+
+frozen_batches:
+  - path: review/pilot_p01_p04_v0.2.json
+    blob_sha: aea6be825d2b868a15c9e58383a4265f22e05b87
+    pairs: P01-P04
+  - path: review/pilot_p05_p08_v0.3.json
+    blob_sha: ad0f1f9836d4212577c15b0debadc14e70faee4e
+    pairs: P05-P08
+  - path: review/pilot_p09_p12_v0.3.json
+    blob_sha: ebfe73b3af87b2617ce4eb9f60d5e2423e928bb6
+    pairs: P09-P12
+  - path: review/pilot_p13_p16_v0.2.json
+    blob_sha: 14544079e54d341ccf370cdd7dc5b06dd7478f28
+    pairs: P13-P16
+  - path: review/pilot_p17_p20_v0.3.json
+    blob_sha: 9e031ba45bceed0ca9047f738f43b3f87fbc1c6c
+    pairs: P17-P20
+
+expected_pairs:
+  - P01
+  - P02
+  - P03
+  - P04
+  - P05
+  - P06
+  - P07
+  - P08
+  - P09
+  - P10
+  - P11
+  - P12
+  - P13
+  - P14
+  - P15
+  - P16
+  - P17
+  - P18
+  - P19
+  - P20
+
+notes:
+  - 本正式版為 review-v0.2 經使用者明確核可後建立之不可覆寫版本紀錄。
+  - review/ 下原始審閱檔維持其歷史 metadata，不回寫 approved_by_user=true。
+  - 本 manifest 以 blob SHA 鎖定核可當下的 40 題內容；未來任何修題均須建立新的 review 與 formal 版本。
+  - 真人單人順序實測僅作題目品質審查，不視為正式心理計量等值驗證。
