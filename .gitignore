@@ -5,6 +5,8 @@ __pycache__/
 venv/
 .env
 .env.*
+output/**/*.json
+output/**/*.md
 output/*.json
 output/*.md
 !output/.gitkeep
