@@ -1,0 +1,72 @@
+version: 1
+scope:
+  exam: "臺灣專門職業及技術人員高等考試 臨床心理師"
+  years: [110, 111, 112, 113, 114, 115]
+  domain: "物質濫用與依賴之心理衡鑑與心理治療"
+forms:
+  names: ["甲卷", "乙卷"]
+  items_per_form: 20
+  parallel_pairs: 20
+historical_index_total: 74
+categories:
+  A:
+    name: "DSM-5/DSM-5-TR 診斷準則、分類與行為成癮"
+    items_per_form: 4
+    historical_count: 14
+    historical_share: 0.189
+    difficulty: {basic: 1, medium: 2, advanced: 1}
+    cognition: {memory: 1, understanding: 2, application: 1}
+  B:
+    name: "心理衡鑑、危險／保護因子、病因與共病"
+    items_per_form: 3
+    historical_count: 14
+    historical_share: 0.189
+    difficulty: {basic: 0, medium: 2, advanced: 1}
+    cognition: {memory: 0, understanding: 1, application: 1, integration: 1}
+  C:
+    name: "動機式晤談 MI／改變動機"
+    items_per_form: 2
+    historical_count: 3
+    historical_share: 0.041
+    difficulty: {basic: 0, medium: 1, advanced: 1}
+    cognition: {memory: 0, understanding: 1, application: 1}
+    note: "歷屆直接題數較少，但屬核心治療能力，因此保留每卷2題。"
+  D:
+    name: "CBT／復發預防／行為治療"
+    items_per_form: 4
+    historical_count: 10
+    historical_share: 0.135
+    difficulty: {basic: 0, medium: 2, advanced: 2}
+    cognition: {memory: 0, understanding: 1, application: 2, integration: 1}
+    note: "提高權重以反映114、115年申論型核心命題。"
+  E:
+    name: "生理心理機制、藥理、耐受／戒斷與獎賞系統"
+    items_per_form: 4
+    historical_count: 15
+    historical_share: 0.203
+    difficulty: {basic: 1, medium: 2, advanced: 1}
+    cognition: {memory: 1, understanding: 2, application: 1}
+  F:
+    name: "三級預防、社區／家庭、政策與整合處遇"
+    items_per_form: 3
+    historical_count: 18
+    historical_share: 0.243
+    difficulty: {basic: 0, medium: 2, advanced: 1}
+    cognition: {memory: 0, understanding: 1, application: 1, integration: 1}
+form_level_targets:
+  difficulty:
+    basic: 2
+    medium: 11
+    advanced: 7
+  cognition:
+    memory: 2
+    understanding: 8
+    application: 7
+    integration: 3
+constraints:
+  - "每卷20題"
+  - "甲乙卷核心類別題數完全一致"
+  - "P01-P20逐題配對"
+  - "同考點、同難度、同認知層次、不同情境"
+  - "正確答案位置盡量平均且無明顯規律"
+  - "最終發布前需使用者核可"
