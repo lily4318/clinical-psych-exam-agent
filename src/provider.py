@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Protocol
+
+from .prompt_builder import build_generation_request
 
 
 class QuestionProvider(Protocol):
@@ -10,6 +13,7 @@ class QuestionProvider(Protocol):
         form: str,
         item_id: str,
         source_ids: list[str],
+        source_context: list[dict[str, str]] | None = None,
     ) -> dict:
         """Generate one item matching the supplied pair specification."""
 
@@ -34,6 +38,7 @@ class StubQuestionProvider:
         form: str,
         item_id: str,
         source_ids: list[str],
+        source_context: list[dict[str, str]] | None = None,
     ) -> dict:
         index = int(spec["pair_id"][1:]) - 1
         answer = ANSWER_ORDERS[form][index]
@@ -67,3 +72,38 @@ class StubQuestionProvider:
             "sources": source_ids or ["SOURCE-MISSING"],
             "quality_status": "草稿",
         }
+
+
+class CallbackQuestionProvider:
+    """Adapter for a real model/client supplied by the caller.
+
+    The callback receives a structured generation request containing the exact
+    item specification and only the source metadata selected for that item. It
+    must return one JSON-compatible exam item. This keeps the core repository
+    independent of any specific paid API and prevents API keys from entering
+    source control.
+    """
+
+    def __init__(self, callback: Callable[[dict], dict]):
+        self.callback = callback
+
+    def generate_item(
+        self,
+        spec: dict[str, str],
+        form: str,
+        item_id: str,
+        source_ids: list[str],
+        source_context: list[dict[str, str]] | None = None,
+    ) -> dict:
+        request = build_generation_request(
+            spec=spec,
+            form=form,
+            item_id=item_id,
+            source_context=source_context or [],
+        )
+        item = self.callback(request)
+        if not isinstance(item, dict):
+            raise TypeError("Question provider callback must return a dict.")
+        item.setdefault("sources", source_ids)
+        item.setdefault("quality_status", "草稿")
+        return item
