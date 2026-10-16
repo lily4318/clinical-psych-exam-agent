@@ -46,6 +46,44 @@ def load_historical_index(path: str | Path | None = None) -> list[dict[str, str]
     return rows
 
 
+def select_latest_exam_years(
+    rows: list[dict[str, str]],
+    count: int = 5,
+) -> list[dict[str, str]]:
+    """Return rows from the latest ``count`` distinct exam years.
+
+    Older rows remain available in the repository for audit/history, but new
+    simulation generation should call this selector so the active historical
+    window shifts automatically when a newer exam year is added.
+    """
+    if count < 1:
+        raise ValueError("count must be a positive integer.")
+
+    years: set[int] = set()
+    for row in rows:
+        raw = str(row.get("year", "")).strip()
+        if not raw:
+            continue
+        try:
+            years.add(int(raw))
+        except ValueError as exc:
+            raise ValueError(f"Invalid exam year in historical index: {raw!r}") from exc
+
+    if not years:
+        raise ValueError("Historical exam index contains no valid exam years.")
+
+    selected_years = set(sorted(years, reverse=True)[:count])
+    return [row for row in rows if int(str(row.get("year", "")).strip()) in selected_years]
+
+
+def load_recent_historical_index(
+    path: str | Path | None = None,
+    *,
+    count: int = 5,
+) -> list[dict[str, str]]:
+    return select_latest_exam_years(load_historical_index(path), count=count)
+
+
 def load_official_sources(path: str | Path | None = None) -> list[dict[str, str]]:
     target = Path(path) if path else DEFAULT_OFFICIAL_SOURCES
     rows = _load_csv(target)
