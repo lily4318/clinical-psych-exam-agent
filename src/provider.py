@@ -24,6 +24,11 @@ ANSWER_ORDERS = {
 }
 
 
+def target_answer_for(pair_id: str, form: str) -> str:
+    index = int(pair_id[1:]) - 1
+    return ANSWER_ORDERS[form][index]
+
+
 class StubQuestionProvider:
     """Structure-only provider.
 
@@ -40,8 +45,7 @@ class StubQuestionProvider:
         source_ids: list[str],
         source_context: list[dict[str, str]] | None = None,
     ) -> dict:
-        index = int(spec["pair_id"][1:]) - 1
-        answer = ANSWER_ORDERS[form][index]
+        answer = target_answer_for(spec["pair_id"], form)
         options = {
             letter: f"[STUB] 選項 {letter}：待由正式題目供應器依考點產生"
             for letter in "ABCD"
@@ -100,6 +104,7 @@ class CallbackQuestionProvider:
             form=form,
             item_id=item_id,
             source_context=source_context or [],
+            target_answer=target_answer_for(spec["pair_id"], form),
         )
         item = self.callback(request)
         if not isinstance(item, dict):
