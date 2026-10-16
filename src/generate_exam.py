@@ -15,7 +15,12 @@ from .load_exam_history import (
     load_official_sources,
     merge_history_with_answers,
 )
-from .provider import QuestionProvider, StubQuestionProvider
+from .provider import (
+    PairQuestionProvider,
+    QuestionProvider,
+    StubQuestionProvider,
+    target_answer_for,
+)
 from .source_context import build_source_context, source_ids
 from .validate_item import validate_item
 
@@ -24,6 +29,28 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def _item_id_for(spec: dict[str, str], form: str) -> str:
     return spec["form_a_item"] if form == "甲卷" else spec["form_b_item"]
+
+
+def _validate_against_spec(
+    item: dict,
+    spec: dict[str, str],
+    form: str,
+    known_sources: set[str],
+) -> list[str]:
+    errors = validate_item(item, known_sources)
+    expected = {
+        "item_id": _item_id_for(spec, form),
+        "form": form,
+        "pair_id": spec["pair_id"],
+        "category": spec["category"],
+        "difficulty": spec["difficulty"],
+        "cognitive_level": spec["cognitive_level"],
+        "correct_answer": target_answer_for(spec["pair_id"], form),
+    }
+    for field, value in expected.items():
+        if item.get(field) != value:
+            errors.append(f"{field} must equal {value!r} for {spec['pair_id']} {form}.")
+    return errors
 
 
 def generate_form(
@@ -55,7 +82,7 @@ def generate_form(
             source_ids=selected_source_ids,
             source_context=context,
         )
-        errors = validate_item(item, known)
+        errors = _validate_against_spec(item, spec, form, known)
         if errors:
             raise ValueError(f"{item.get('item_id')}: " + "; ".join(errors))
         items.append(item)
@@ -91,7 +118,7 @@ def generate_parallel_drafts(
     *,
     version: str = "0.2-source-backed-draft",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    load_blueprint()  # validates repository-level blueprint before generation
+    load_blueprint()
     pairs = load_parallel_blueprint()
     history, official_sources, answer_sources, knowledge_sources = load_generation_data()
     provider = provider or StubQuestionProvider()
@@ -117,6 +144,53 @@ def generate_parallel_drafts(
         version=version,
     )
     return form_a, form_b
+
+
+def generate_parallel_pairs(
+    provider: PairQuestionProvider,
+    *,
+    version: str = "0.2-source-backed-draft",
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Generate both forms pair-by-pair so the model can enforce equivalence directly."""
+    load_blueprint()
+    pairs = load_parallel_blueprint()
+    history, official_sources, answer_sources, knowledge_sources = load_generation_data()
+    known = known_source_ids(
+        history,
+        official_sources,
+        answer_sources,
+        knowledge_sources,
+    )
+
+    form_a_items: list[dict] = []
+    form_b_items: list[dict] = []
+
+    for spec in pairs:
+        context = build_source_context(spec, history, knowledge_sources)
+        selected_source_ids = source_ids(context)
+        result = provider.generate_pair(spec, context)
+
+        for key, form, target in (
+            ("form_a", "甲卷", form_a_items),
+            ("form_b", "乙卷", form_b_items),
+        ):
+            item = result[key]
+            if not isinstance(item, dict):
+                raise TypeError(f"{spec['pair_id']} {key} must be a dict.")
+            item.setdefault("sources", selected_source_ids)
+            item.setdefault("quality_status", "草稿")
+            errors = _validate_against_spec(item, spec, form, known)
+            if errors:
+                raise ValueError(
+                    f"{spec['pair_id']} {form}: " + "; ".join(errors)
+                )
+            target.append(item)
+
+    common = {"version": version, "quality_status": "草稿", "approved_by_user": False}
+    return (
+        {"form": "甲卷", "items": form_a_items, **common},
+        {"form": "乙卷", "items": form_b_items, **common},
+    )
 
 
 def main() -> None:
