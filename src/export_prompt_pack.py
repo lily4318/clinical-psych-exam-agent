@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from .load_blueprint import load_parallel_blueprint
+from .load_blueprint import load_pair_source_requirements, load_parallel_blueprint
 from .load_exam_history import load_historical_index, load_knowledge_sources
 from .prompt_builder import build_pair_generation_request
 from .provider import target_answer_for
@@ -15,12 +15,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def build_prompt_pack() -> list[dict]:
     pairs = load_parallel_blueprint()
+    requirements = load_pair_source_requirements()
     history = load_historical_index()
     knowledge = load_knowledge_sources()
     pack: list[dict] = []
 
     for spec in pairs:
-        context = build_source_context(spec, history, knowledge)
+        rules = requirements[spec["pair_id"]]
+        context = build_source_context(
+            spec,
+            history,
+            knowledge,
+            required_all_source_ids=rules.get("require_all") or [],
+            required_any_source_ids=rules.get("require_any") or [],
+        )
         pack.append(
             build_pair_generation_request(
                 spec=spec,
