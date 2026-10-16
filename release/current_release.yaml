@@ -1,4 +1,4 @@
-agent_state_version: 2
+agent_state_version: 3
 current_formal_release: formal-v1.0
 formal_manifest: release/formal_release_v1.0.yaml
 approval_record: release/approval_record_v1.0.md
@@ -10,6 +10,12 @@ storage:
   repository: lily4318/clinical-psych-exam-agent
   google_drive: deleted
   note: 不再依賴或尋找任何舊 Google Drive 資料；若未來需要新增原始資料，應重新上傳或另行建立來源並明確記錄。
+public_usage:
+  entrypoint: START_HERE.md
+  mode: repo_url_plus_short_task
+  example: https://github.com/lily4318/clinical-psych-exam-agent 幫我做兒童版考卷
+  public_repo_default_access: read_only
+  persistent_customization: fork_repository
 forms:
   form_a: 甲卷 P01-P20
   form_b: 乙卷 P01-P20
@@ -18,6 +24,7 @@ approval:
   approval_date: 2026-10-16
 continuation:
   start_here:
+    - START_HERE.md
     - release/current_release.yaml
     - agent/system_prompt.md
     - docs/NEW_CHAT_CONTINUATION.md
