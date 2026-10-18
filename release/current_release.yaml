@@ -46,3 +46,15 @@ word_export:
     - 答案與解析
   after_formal_approval: ask_or_export
   if_user_previously_requested_word: export_immediately
+ml_evaluation:
+  policy_file: config/ml_evaluation_policy.yaml
+  guide: docs/EVALUATION_GUIDE.md
+  cadence: hourly
+  evaluation_target: 0.90
+  target_status: not_yet_verified
+  metric: independently_adjudicated_new_exam_item_validity
+  historical_diagnostic_train_years: [111, 112, 113, 114]
+  historical_diagnostic_test_years: [115]
+  historical_diagnostic_is_blind_test: false
+  actual_model_fine_tuning: not_configured
+  formal_release_changes_require_approval: true
