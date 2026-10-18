@@ -99,3 +99,10 @@ GitHub Actions 先前曾在 job 建立前出現 `startup_failure`；因此不要
 ## 每小時自動優化與評測
 
 目前排程每小時執行一次低風險 Agent 流程優化。評測政策：[`config/ml_evaluation_policy.yaml`](config/ml_evaluation_policy.yaml)；實作及資料隔離說明：[`docs/EVALUATION_GUIDE.md`](docs/EVALUATION_GUIDE.md)。現有公開資料的111–114年48筆為訓練／開發診斷、115年14筆為非盲測診斷。真正的**90%**須由全新、獨立標註之模擬題驗收；目前尚未證明達標，也沒有重新訓練底層模型權重。
+
+## 企業式 Agent 長期優化（2026-10）
+
+- [百項機器學習／Agent 評測研究資源](docs/ML_AGENT_RESEARCH_100_SOURCES.md)：整理100項不重複文獻、各企業技術文件與評測工具；屬研究索引，不代表已完整閱讀所有全文。
+- [長期評測目標與五軌 KPI](docs/LONG_TERM_EVALUATION_ROADMAP.md)：涵蓋回歸測試、Agent任務成功率、獨立專家試題品質90%、心理計量驗證與運維成本。
+- [GitHub連線、Actions故障檢查](docs/GITHUB_CONNECTION_TROUBLESHOOTING.md)：附可手動執行的 `.github/workflows/connectivity_smoke.yml`。
+- 每小時自動化以開發集/非封存測試資料做受限迭代；沒有真正獨立盲測與人類專家審查，不得宣稱品質已達90%。
