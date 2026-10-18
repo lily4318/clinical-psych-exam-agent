@@ -43,3 +43,51 @@ iteration:
 immutability:
   formal_release_locked: true
   review_to_formal_requires_user_approval: true
+
+# 2026-10-18 research-informed addendum; see docs/ML_AGENT_RESEARCH_100_SOURCES.md
+research_governance:
+  resource_index: docs/ML_AGENT_RESEARCH_100_SOURCES.md
+  roadmap: docs/LONG_TERM_EVALUATION_ROADMAP.md
+  source_count_indexed: 100
+  full_text_review_of_all_100_claimed: false
+  source_staleness_review: quarterly
+evaluation_tracks:
+  deterministic_regression:
+    metric: passed_checks_over_total_checks
+    release_gate: no_regression_and_zero_critical_failures
+    important: "不得以pytest通過率代替題目專業正確性。"
+  agent_task_success:
+    metric: fully_completed_user_tasks_over_all_predefined_tasks
+    suite: "短指令啟動、近5年來源、指定題數、甲乙等值、來源追溯、版控、Word輸出、故障恢復"
+    track_repeated_trials: true
+  expert_item_validity:
+    metric: independently_approved_new_items_over_all_independently_reviewed_new_items
+    target: 0.90
+    minimum_test_items_recommended: 100
+    gate: "達標且無重大臨床、診斷、藥理、答案或引用品質缺失"
+    report_confidence_interval: true
+    independent_raters: "至少安排獨立領域專家，歧見需仲裁並報告一致性"
+    sealed_test: true
+  psychometrics:
+    require_real_examinee_data: true
+    metrics: [item_difficulty, item_discrimination, distractor_functioning, reliability, parallel_form_equivalence]
+    note: "專家審查不等於試題心理計量驗證；若尚無真實作答資料應明確標示未測量。"
+  operational_quality:
+    metrics: [trace_completeness, tool_call_success, source_link_integrity, latency, token_usage, cost_per_valid_item, rollback_success]
+    no_automatic_paid_fine_tuning: true
+hourly_routine:
+  intent: "監控與有限次開發集優化，非每小時重訓底層模型。"
+  maximum_iterations_per_run: 1
+  skip_if_no_new_evidence_or_code_change: true
+  test_set_access_on_hourly_loop: forbidden
+  release_policy: "更改可能影響正式生成內容的規則時先建立候選版本與PR；既有formal不可覆寫。"
+  missing_runner_or_credentials: "回報阻礙並執行可用的靜態檢查，不得捏造準確率。"
+  safe_cost_policy: "無使用者授權預算、API credentials 或可執行平台時禁止發起付費訓練。"
+experiment_lineage:
+  record: [git_commit, prompt_version, dataset_version, split_hash, model_version, evaluator_version, task_count, pass_count, failed_cases, runtime, token_usage, cost_estimate]
+  include_contamination_audit: true
+  rollback_on_regression: true
+platform_watch:
+  openai_legacy_evals_read_only_after: 2026-10-31
+  openai_legacy_evals_shutdown_planned: 2026-11-30
+  avoid_new_dependency_on_deprecating_legacy_evals: true
