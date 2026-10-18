@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -82,39 +83,73 @@ def _as_boolean(value: Any, field: str) -> bool:
     raise ValueError(f"Invalid or missing expert label in {field}: {value!r}")
 
 
+def _wilson_interval(successes: int, total: int) -> dict[str, float]:
+    """Two-sided 95% Wilson score interval for a binomial proportion."""
+    z = 1.959963984540054
+    p = successes / total
+    z2 = z * z
+    denominator = 1 + z2 / total
+    center = (p + z2 / (2 * total)) / denominator
+    half_width = z * math.sqrt(p * (1 - p) / total + z2 / (4 * total * total)) / denominator
+    return {"lower": max(0.0, center - half_width), "upper": min(1.0, center + half_width)}
+
+
 def evaluate_expert_adjudications(
     records: Iterable[dict[str, Any]],
     *,
     target: float = 0.90,
+    minimum_items: int = 100,
+    independence_verified: bool = False,
 ) -> dict[str, Any]:
     """Score labeled NEW questions. All criteria must pass for an item to pass.
 
-    Caller must enforce provenance, expert independence, and data isolation.
+    independence_verified is an external attestation, NOT a technical proof.
+    The default prevents scoring a local CSV as a verified blind test.
     """
     rows = list(records)
     if not rows:
         raise ValueError("No independently adjudicated questions were supplied.")
     if not 0 < target <= 1:
         raise ValueError("target must be in (0,1].")
+    if minimum_items < 1:
+        raise ValueError("minimum_items must be positive.")
+    if not isinstance(independence_verified, bool):
+        raise ValueError("independence_verified must be a boolean attestation.")
     ids: set[str] = set()
     accepted = 0
+    critical_failures = 0
     for row in rows:
         item_id = str(row.get("item_id", "")).strip()
         if not item_id or item_id in ids:
             raise ValueError("Expert review item IDs must be unique and nonblank.")
         ids.add(item_id)
         checks = [_as_boolean(row.get(field), field) for field in CRITERIA]
+        if not checks[-1]:
+            critical_failures += 1
         if all(checks):
             accepted += 1
     total = len(rows)
+    rate = accepted / total
+    numeric_target_met = rate >= target
+    sample_size_sufficient = total >= minimum_items
+    passed_all_gates = (
+        numeric_target_met and sample_size_sufficient
+        and critical_failures == 0 and independence_verified
+    )
     return {
         "accepted": accepted,
         "total": total,
-        "accuracy": accepted / total,
+        "accuracy": rate,
+        "confidence_interval_95": _wilson_interval(accepted, total),
         "target": target,
-        "reached_target": accepted / total >= target,
+        "minimum_items": minimum_items,
+        "sample_size_sufficient": sample_size_sufficient,
+        "critical_failures": critical_failures,
+        "numeric_target_met": numeric_target_met,
+        "reached_target": passed_all_gates,
         "interpretation": "Expert-adjudicated item validity; NOT model answer prediction accuracy.",
-        "independence_verification_required": True,
+        "independence_verification_required": not independence_verified,
+        "independence_attestation_is_external": True,
     }
 
 
