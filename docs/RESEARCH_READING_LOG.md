@@ -21,3 +21,15 @@ Google MLCC資料切分、Google Cloud MLOps、Anthropic Agent Evals、Anthropic
 證據限制：三者是一般機器學習工程教材，並非臨床心理試題品質的直接效度研究。本輪未進行模型微調或臨床專家評分。
 
 本輪新增6項品質門檻回歸測試，commit `7348f6ba9d575546876e80f6fc1f8961d047e9c8`。使用GitHub取得的評測程式與測試內容在本地重建最小環境執行10/10通過；不是完整repo pytest或CI。歷屆索引74筆：111–114年48筆開發、115年14筆歷史診斷，非盲測。正式90%尚未驗證。GitHub Actions最近仍是2026-10-16的startup_failure。
+
+
+## 2026-10-18 16:56 研究研讀與資料洩漏稽核
+
+本輪新增檢視三項100篇索引中尚未逐項登錄的來源；均為公開官方網頁正文，未下載附屬資料、執行SDK或重現實驗：
+- **#010 Google Cloud — MLOps CI/CD/CT**：https://docs.cloud.google.com/architecture/mlops-continuous-delivery-and-automation-pipelines-in-machine-learning；官方文件最近審閱2024-08-28；已檢視資料驗證、模型驗證、pipeline metadata、觸發條件等主要章節。應用：將資料版本/來源家族、實驗版本與執行結果記錄為不可混淆的獨立指標。限制：主要針對預測式ML，非直接的臨床考題效度證據。
+- **#014 Microsoft Foundry — Evaluate your AI agents**：https://learn.microsoft.com/en-us/azure/foundry/observability/how-to/evaluate-agent；官方文件更新2026-10-01；已檢視rubric evaluator、任務資料集、工具與安全評測及版本比較的主要章節。應用：明確分開工具呼叫、任務完成、品質與安全的評分。限制：SDK示例依賴Foundry與Azure模型部署，未在本專案安裝或付費測試。
+- **#032 LangChain — The Most Common Questions About Agent Evals, Answered**：https://www.langchain.com/blog/common-questions-about-agent-evals；發布2026-10-15；已檢視正文（baseline、offline/online eval、程式評分、LLM judge與人工校準、完整任務狀態、成本控制）。應用：先用10–20真實任務trace建立單項行為baseline，與封存專家盲測分開。限制：企業產品實務文章，未複現範例；不可直接推論臨床試題準確率。
+
+**本輪資料治理新發現**：`data/historical_exam_index.csv`只有`item_id/year/source_item`等欄位，沒有可用來辨識跨年度同源改寫的`origin_group_id`。現有`chronological_diagnostic_split`只檢查item_id是否重複，不能證明同源題組沒有跨開發與歷史診斷分區。已在隔離環境對候選同源群組檢核函式執行4/4單元測試（非完整repo pytest）；程式提交因連接器安全檢查阻擋，未將此候選修正寫回repo。下一步應先為新收集的資料建立來源家族ID並進行群組洩漏檢查，不能把「按年份切分」誤稱已排除同源污染。
+
+GitHub Actions本輪查得仍為67筆執行紀錄，最新2026-10-16 `startup_failure`，未見smoke workflow成功紀錄。正式專家盲測0題可用，90%仍未驗證；未進行模型訓練、未更改formal-v1.0。
