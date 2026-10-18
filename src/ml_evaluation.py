@@ -103,7 +103,8 @@ def evaluate_expert_adjudications(
         if not item_id or item_id in ids:
             raise ValueError("Expert review item IDs must be unique and nonblank.")
         ids.add(item_id)
-        if all(_as_boolean(row.get(field), field) for field in CRITERIA):
+        checks = [_as_boolean(row.get(field), field) for field in CRITERIA]
+        if all(checks):
             accepted += 1
     total = len(rows)
     return {
