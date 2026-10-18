@@ -58,3 +58,14 @@ ml_evaluation:
   historical_diagnostic_is_blind_test: false
   actual_model_fine_tuning: not_configured
   formal_release_changes_require_approval: true
+
+research_and_optimization:
+  resource_index: docs/ML_AGENT_RESEARCH_100_SOURCES.md
+  roadmap: docs/LONG_TERM_EVALUATION_ROADMAP.md
+  github_diagnostics: docs/GITHUB_CONNECTION_TROUBLESHOOTING.md
+  sources_indexed: 100
+  full_text_review_all_100: false
+  evaluation_tracks: [regression, agent_task_success, expert_item_validity, psychometrics, operational_quality]
+  github_connector_status: working
+  sandbox_git_clone_status: dns_blocked
+  github_actions_status: startup_failure_historical_smoke_pending
