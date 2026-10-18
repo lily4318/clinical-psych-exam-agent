@@ -77,3 +77,9 @@
 本 Agent 的持久 source of truth 是 GitHub。Google Drive 已刪除，不得要求尋找舊 Drive 資料。
 
 目前狀態入口：`release/current_release.yaml`。
+
+## 自動優化與90%品質門檻
+
+- 每小時排程與訓練／測試隔離原則，見 `config/ml_evaluation_policy.yaml` 和 `docs/EVALUATION_GUIDE.md`。
+- **90% 是全新試題的獨立專家品質驗收目標，尚非已測得成績。**程式測試通過率不得代替命題品質準確率。
+- 現有歷屆題索引依年份可做訓練／診斷分組，但已公開使用過的115年題目不能當真正未洩漏盲測。
