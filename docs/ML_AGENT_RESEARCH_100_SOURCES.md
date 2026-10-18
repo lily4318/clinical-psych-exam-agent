@@ -129,8 +129,8 @@
 084. [2023 arXiv — Direct Preference Optimization](https://arxiv.org/abs/2305.18290)
 085. [2026 ICML — Adaptive testing via IRT](https://proceedings.mlr.press/v306/li26fx.html)
 086. [2025 KDD — LLM agent evaluation tutorial materials](https://github.com/SAP-samples/llm-agents-eval-tutorial)
-087. [2025 arXiv — LLM agent evaluation survey preprint](https://arxiv.org/abs/2503.16416)
-088. [2025 arXiv — LLM agents evaluation benchmarking survey preprint](https://arxiv.org/abs/2507.21504)
+087. [2023 arXiv — WebArena real-world web agent benchmark](https://arxiv.org/abs/2307.13854)
+088. [2024 arXiv — τ-bench multi-turn tool agent benchmark](https://arxiv.org/abs/2406.12045)
 
 ### 試題編製、醫學教育與心理計量
 
