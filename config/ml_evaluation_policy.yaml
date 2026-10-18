@@ -1,0 +1,45 @@
+# Evaluation and improvement policy — clinical psychologist exam agent
+version: 1
+mode: prompt_and_pipeline_optimization
+target:
+  value: 0.90
+  status: not_yet_measured
+  name: independently_adjudicated_item_validity_rate
+  definition: "獨立專家對每個全新模擬題進行判定：事實正確、單一最佳答案、解析與來源正確、符合命題領域和目標難度；全部合格才算1題通過。準確率 = 合格題數 / 完整評分題數。"
+  critical_failure_policy: "診斷／用藥重大錯誤、雙答案、捏造來源時不可認定該題合格"
+  minimum_independent_test_items_recommended: 100
+  note: "90% 是人工與資料可驗證的驗收門檻，不是 prompt 自評、程式測試通過率，也不是模型權重訓練保證。"
+data_partition:
+  train_development:
+    purpose: "反覆優化提示詞、評測器、來源選取、干擾選項與流程"
+    within_partition: "可使用交叉驗證或自行留開發子集；不得接觸獨立測試答案"
+  held_out_test:
+    purpose: "鎖定版本後才用於最終驗收，不可每小時重複回饋錯題"
+    require_fresh_independent_items: true
+    location: "不得把未公開答案放在這個公開 GitHub repository 或產題 prompt"
+    independent_expert_adjudication: true
+    re_evaluation_policy: "同一鎖定測試集不得被逐次調參重用；測試失敗後繼續改進需使用訓練／開發集，正式重新驗收需新測試資料"
+historical_diagnostic_partition:
+  purpose: "將目前近5年考題索引分為2批供離線診斷；不是獨立盲測的有效替代"
+  latest_years: 5
+  method: chronological_group_holdout
+  training_years: "近5年中較早4年（目前111–114）"
+  diagnostic_test_years: "最新1年（目前115）"
+  test_contamination_warning: "既有公開 repo、正式題卷與先前提示詞已使用115年資料；故此批只能做診斷，不得宣稱獨立測試達標"
+  prevent_same_origin_cross_partition: true
+  never_train_on_test_answers: true
+iteration:
+  frequency: hourly
+  steps:
+    - "讀取版本與先前報告，找出可驗證待改善項"
+    - "只用訓練／開發集執行可用的評測、品質分析與回歸測試"
+    - "一次修改少量可逆、低風險設定或程式，記錄基準值與新結果"
+    - "完成 code/test/source checks 後產生 commit 或說明阻礙"
+    - "若達到訓練／開發指標，等待真正獨立測試與專家核定"
+    - "每次回報實際執行的步驟、指標分子分母、失敗原因和下一步"
+  when_no_new_evidence: "不要空跑、捏造指標或重複把相同測試集當作新測試"
+  stop_condition: "只有獨立標註測試集達90%以上、且無關鍵錯誤，才標記達到品質目標"
+  resource_safety: "單次任務受執行環境和授權限制，不進行無限迴圈或未授權付費訓練"
+immutability:
+  formal_release_locked: true
+  review_to_formal_requires_user_approval: true
