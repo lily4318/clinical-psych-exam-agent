@@ -95,3 +95,7 @@ AI 應先讀 `START_HERE.md`，再依 repository 規則自動載入狀態與命�
 既有 20 題 P01–P20 executable pipeline 仍保留，用於目前 formal-v1.0 基準與相關測試。新的 Agent 對話層已支援「未指定 20 題、指定則依指定題數」的政策；非 20 題應建立衍生藍圖，不得覆寫既有正式基準。
 
 GitHub Actions 先前曾在 job 建立前出現 `startup_failure`；因此不要把 repository 中存在 pytest 測試解讀成 CI 已成功通過。除非實際執行測試並得到結果，否則不得宣稱 tests pass。
+
+## 每小時自動優化與評測
+
+目前排程每小時執行一次低風險 Agent 流程優化。評測政策：[`config/ml_evaluation_policy.yaml`](config/ml_evaluation_policy.yaml)；實作及資料隔離說明：[`docs/EVALUATION_GUIDE.md`](docs/EVALUATION_GUIDE.md)。現有公開資料的111–114年48筆為訓練／開發診斷、115年14筆為非盲測診斷。真正的**90%**須由全新、獨立標註之模擬題驗收；目前尚未證明達標，也沒有重新訓練底層模型權重。
