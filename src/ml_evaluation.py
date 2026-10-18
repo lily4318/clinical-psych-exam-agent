@@ -14,6 +14,11 @@ import math
 from pathlib import Path
 from typing import Any, Iterable
 
+if __package__:
+    from .origin_group_audit import audit_origin_groups
+else:
+    from origin_group_audit import audit_origin_groups
+
 ROOT = Path(__file__).resolve().parents[1]
 CRITERIA = (
     "factually_correct",
@@ -61,12 +66,19 @@ def chronological_diagnostic_split(
         raise ValueError("Train and diagnostic test data must be non-empty.")
     if {r["item_id"] for r in train} & {r["item_id"] for r in test}:
         raise ValueError("Item ID leaked between partitions.")
+    origin_audit = audit_origin_groups(train, test)
+    if origin_audit["shared_origin_groups"]:
+        raise ValueError(
+            "Origin group leaked between partitions: "
+            + ", ".join(origin_audit["shared_origin_groups"])
+        )
     summary = {
         "train_years": train_years,
         "diagnostic_test_year": holdout_year,
         "train_count": len(train),
         "diagnostic_test_count": len(test),
         "is_blind_test": False,
+        "origin_group_audit": origin_audit,
         "warning": "Historical data is public and previously referenced; this is NOT independent final evaluation.",
     }
     return train, test, summary
