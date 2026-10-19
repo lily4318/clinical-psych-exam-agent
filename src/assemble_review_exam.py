@@ -31,6 +31,12 @@ from .source_context import build_source_context, source_ids
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = ROOT / "review" / "release_manifest_v0.2.yaml"
 
+# Audited cross-category citation in the frozen review snapshot only:
+# 110-Q26 is indexed under DSM (A) but directly covers tolerance/withdrawal,
+# which is also the core topic of the P07 physiology/pharmacology pair (E).
+# Keep this exception narrow; new draft generation does not use it.
+REVIEW_CROSS_CATEGORY_HISTORICAL_IDS = {"P07": frozenset({"110-Q26"})}
+
 
 def load_review_manifest(path: str | Path | None = None) -> dict[str, Any]:
     target = Path(path) if path else DEFAULT_MANIFEST
@@ -132,10 +138,17 @@ def assemble_review_release(
         # Keep historical citations restricted to the same blueprint category,
         # while authoritative knowledge sources remain pair-specific and strict.
         category_label = CATEGORY_LABELS[spec["category"]]
+        cross_category_ids = REVIEW_CROSS_CATEGORY_HISTORICAL_IDS.get(
+            pair_id, frozenset()
+        )
         category_historical = {
             row["item_id"]
             for row in history
-            if row.get("item_id") and row.get("category") == category_label
+            if row.get("item_id")
+            and (
+                row.get("category") == category_label
+                or row["item_id"] in cross_category_ids
+            )
         }
         allowed = category_historical | selected_knowledge
 
