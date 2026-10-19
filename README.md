@@ -94,7 +94,15 @@ AI 應先讀 `START_HERE.md`，再依 repository 規則自動載入狀態與命�
 clinical-psych-exam-docx output/form_a.json output/form_b.json --out output/docx
 ```
 
-如需提供不含解答的考生版，加上 `--hide-answers`。匯出器只負責既有 JSON → DOCX；兒童或其他新領域的 AI 命題尚須完成對應藍圖及生成服務整合。若執行環境不能實際建立檔案，不得宣稱已產生下載檔。
+如需提供不含解答的考生版，加上 `--hide-answers`。
+
+若要從**現有已驗證的物質濫用領域 review-v0.2** 直接產出甲乙各20題 Word，則可一行執行：
+
+```bash
+clinical-psych-review-docx --out output/review-docx
+```
+
+此指令從既有 review manifest 組卷並輸出兩份可閱讀 DOCX；它不會自行產生兒童領域新題，也不會把 review 草稿升為正式核可版。匯出器只負責既有 JSON → DOCX；兒童或其他新領域的 AI 命題尚須完成對應藍圖及生成服務整合。若執行環境不能實際建立檔案，不得宣稱已產生下載檔。
 
 ### 既有正式版
 
