@@ -15,7 +15,7 @@ def exam_only_markdown(exam: dict[str, Any]) -> str:
         "",
         f"版本：{exam['version']}",
         "",
-        "> 本檔刻意隱藏正確答案、解析、考點、難度、來源與 pair metadata。請只從考生實際看到的題目判斷品質。",
+        "> 本檔僅提供考生可見的題目及選項；不提供解答、解析、考點、難度、來源與配對資料。",
         "",
     ]
     for number, item in enumerate(exam["items"], start=1):
