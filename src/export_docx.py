@@ -124,11 +124,23 @@ def export_parallel_docx(
         raise ValueError("Parallel forms must have the same item count.")
     if str(form_a.get("version") or "draft") != str(form_b.get("version") or "draft"):
         raise ValueError("Parallel forms must use the same version.")
+    seen_pair_ids: set[str] = set()
     for number, (item_a, item_b) in enumerate(
         zip(form_a["items"], form_b["items"]), start=1
     ):
-        if item_a.get("pair_id") != item_b.get("pair_id"):
+        pair_a, pair_b = item_a.get("pair_id"), item_b.get("pair_id")
+        if (
+            not isinstance(pair_a, str)
+            or not pair_a.strip()
+            or not isinstance(pair_b, str)
+            or not pair_b.strip()
+        ):
+            raise ValueError(f"Missing pair ID at item {number}.")
+        if pair_a != pair_b:
             raise ValueError(f"Pair ID mismatch at item {number}.")
+        if pair_a in seen_pair_ids:
+            raise ValueError(f"Duplicate pair ID at item {number}: {pair_a}.")
+        seen_pair_ids.add(pair_a)
 
     return {
         "form_a": export_exam_docx(form_a, out_dir, include_answers=include_answers),
