@@ -102,14 +102,15 @@ def assemble_review_release(
     for spec in pair_specs:
         pair_id = spec["pair_id"]
         pair = review_by_pair[pair_id]
-        required_all, required_any, required_context = _source_rule_sets(
+        required_all, required_any = _source_rule_sets(
             spec, source_requirements
         )
         context = build_source_context(
             spec,
             history,
             knowledge_sources,
-            required_source_ids=required_context,
+            required_all_source_ids=required_all,
+            required_any_source_ids=required_any,
         )
         context_ids = set(source_ids(context))
         selected_knowledge = context_ids & knowledge_ids
