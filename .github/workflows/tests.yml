@@ -2,6 +2,7 @@ name: tests
 
 "on":
   workflow_dispatch:
+  pull_request:
 
 permissions:
   contents: read
@@ -21,7 +22,6 @@ jobs:
       - name: Test
         run: pytest
 
-# Automatic push runs are intentionally paused because this private repository
-# currently returns GitHub Actions startup_failure before any job is created.
-# Re-enable push/pull_request triggers after the repository/account Actions
-# execution setting is fixed; the pytest job itself remains defined here.
+# Run tests automatically on pull requests and allow manual dispatch.
+# Public-repository GitHub-hosted standard runners are used; no paid API keys.
+# Keep main protected from untested candidate changes.

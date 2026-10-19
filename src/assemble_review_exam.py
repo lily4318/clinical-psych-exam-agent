@@ -19,11 +19,23 @@ from .load_blueprint import (
     load_pair_source_requirements,
     load_parallel_blueprint,
 )
-from .load_exam_history import CATEGORY_LABELS, known_source_ids
+from .load_exam_history import (
+    CATEGORY_LABELS,
+    known_source_ids,
+    load_historical_index,
+    load_official_answer_keys,
+    merge_history_with_answers,
+)
 from .source_context import build_source_context, source_ids
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = ROOT / "review" / "release_manifest_v0.2.yaml"
+
+# Audited cross-category citation in the frozen review snapshot only:
+# 110-Q26 is indexed under DSM (A) but directly covers tolerance/withdrawal,
+# which is also the core topic of the P07 physiology/pharmacology pair (E).
+# Keep this exception narrow; new draft generation does not use it.
+REVIEW_CROSS_CATEGORY_HISTORICAL_IDS = {"P07": frozenset({"110-Q26"})}
 
 
 def load_review_manifest(path: str | Path | None = None) -> dict[str, Any]:
@@ -82,7 +94,13 @@ def assemble_review_release(
     blueprint = load_blueprint()
     pair_specs = load_parallel_blueprint()
     source_requirements = load_pair_source_requirements()
-    history, official_sources, answer_sources, knowledge_sources = load_generation_data()
+    _, official_sources, answer_sources, knowledge_sources = load_generation_data()
+    # The canonical review-v0.2 references pre-111 historical items. Use the
+    # full audited history for this frozen review snapshot, while new drafts
+    # continue to use the rolling five-year window in load_generation_data().
+    history = merge_history_with_answers(
+        load_historical_index(), load_official_answer_keys()
+    )
 
     known = known_source_ids(
         history,
@@ -102,14 +120,15 @@ def assemble_review_release(
     for spec in pair_specs:
         pair_id = spec["pair_id"]
         pair = review_by_pair[pair_id]
-        required_all, required_any, required_context = _source_rule_sets(
+        required_all, required_any = _source_rule_sets(
             spec, source_requirements
         )
         context = build_source_context(
             spec,
             history,
             knowledge_sources,
-            required_source_ids=required_context,
+            required_all_source_ids=required_all,
+            required_any_source_ids=required_any,
         )
         context_ids = set(source_ids(context))
         selected_knowledge = context_ids & knowledge_ids
@@ -119,10 +138,17 @@ def assemble_review_release(
         # Keep historical citations restricted to the same blueprint category,
         # while authoritative knowledge sources remain pair-specific and strict.
         category_label = CATEGORY_LABELS[spec["category"]]
+        cross_category_ids = REVIEW_CROSS_CATEGORY_HISTORICAL_IDS.get(
+            pair_id, frozenset()
+        )
         category_historical = {
             row["item_id"]
             for row in history
-            if row.get("item_id") and row.get("category") == category_label
+            if row.get("item_id")
+            and (
+                row.get("category") == category_label
+                or row["item_id"] in cross_category_ids
+            )
         }
         allowed = category_historical | selected_knowledge
 
