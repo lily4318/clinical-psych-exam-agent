@@ -32,7 +32,7 @@ def _validate_exam(exam: dict[str, Any], *, include_answers: bool) -> None:
             raise ValueError(f"Item {number} requires non-empty A-D options.")
         if include_answers:
             answer = item.get("correct_answer")
-            if not isinstance(answer, str) or answer not in "ABCD":
+            if not isinstance(answer, str) or answer not in {"A", "B", "C", "D"}:
                 raise ValueError(f"Item {number} requires one valid answer letter.")
             rationale = item.get("rationale")
             if not isinstance(rationale, dict) or not str(
