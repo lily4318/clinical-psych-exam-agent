@@ -19,7 +19,13 @@ from .load_blueprint import (
     load_pair_source_requirements,
     load_parallel_blueprint,
 )
-from .load_exam_history import CATEGORY_LABELS, known_source_ids
+from .load_exam_history import (
+    CATEGORY_LABELS,
+    known_source_ids,
+    load_historical_index,
+    load_official_answer_keys,
+    merge_history_with_answers,
+)
 from .source_context import build_source_context, source_ids
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -82,7 +88,13 @@ def assemble_review_release(
     blueprint = load_blueprint()
     pair_specs = load_parallel_blueprint()
     source_requirements = load_pair_source_requirements()
-    history, official_sources, answer_sources, knowledge_sources = load_generation_data()
+    _, official_sources, answer_sources, knowledge_sources = load_generation_data()
+    # The canonical review-v0.2 references pre-111 historical items. Use the
+    # full audited history for this frozen review snapshot, while new drafts
+    # continue to use the rolling five-year window in load_generation_data().
+    history = merge_history_with_answers(
+        load_historical_index(), load_official_answer_keys()
+    )
 
     known = known_source_ids(
         history,
