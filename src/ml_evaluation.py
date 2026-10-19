@@ -61,7 +61,22 @@ def chronological_diagnostic_split(
         raise ValueError("Train and diagnostic test data must be non-empty.")
     if {r["item_id"] for r in train} & {r["item_id"] for r in test}:
         raise ValueError("Item ID leaked between partitions.")
+    # Same-origin variants can have different item IDs and exam years.
+    selected_rows = train + test
+    origin_ids = [str(row.get("origin_group_id", "")).strip() for row in selected_rows]
+    if any(origin_ids) and not all(origin_ids):
+        raise ValueError("origin_group_id must be populated for every selected item when used.")
+    origin_group_checked = bool(origin_ids) and all(origin_ids)
+    if origin_group_checked:
+        train_origins = {str(row["origin_group_id"]).strip() for row in train}
+        test_origins = {str(row["origin_group_id"]).strip() for row in test}
+        if train_origins & test_origins:
+            raise ValueError("Origin group leaked between development and diagnostic partitions.")
     summary = {
+        "origin_group_check": "verified_no_overlap" if origin_group_checked else "not_available",
+        "origin_group_warning": None if origin_group_checked else (
+            "origin_group_id missing: same-origin variants across partitions were not audited."
+        ),
         "train_years": train_years,
         "diagnostic_test_year": holdout_year,
         "train_count": len(train),
