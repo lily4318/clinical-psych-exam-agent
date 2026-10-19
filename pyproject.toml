@@ -28,6 +28,7 @@ all = [
 clinical-psych-exam-draft = "src.generate_exam:main"
 clinical-psych-exam-export = "src.export_exam:main"
 clinical-psych-exam-docx = "src.export_docx:main"
+clinical-psych-review-docx = "src.export_review_docx:main"
 clinical-psych-exam-check = "src.check_parallel_forms:main"
 clinical-psych-exam-prompts = "src.export_prompt_pack:main"
 clinical-psych-exam-openai = "src.run_openai_generation:main"
