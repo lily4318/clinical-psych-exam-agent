@@ -97,3 +97,26 @@ def test_existing_review_manifest_exports_complete_two_word_files(tmp_path):
         assert len(doc.tables) == 1
         assert len(doc.tables[0].rows) == 21
         assert len(paths[label].read_bytes()) > 5000
+
+
+@pytest.mark.parametrize("bad_pair_id", ["missing", "", "   ", 123])
+def test_rejects_missing_blank_or_non_string_pair_ids(tmp_path, bad_pair_id):
+    form_a, form_b = _exam("甲卷"), _exam("乙卷")
+    if bad_pair_id == "missing":
+        form_b["items"][0].pop("pair_id")
+    else:
+        form_b["items"][0]["pair_id"] = bad_pair_id
+
+    with pytest.raises(ValueError, match="Missing pair ID"):
+        export_parallel_docx(form_a, form_b, tmp_path)
+    assert not list(tmp_path.glob("*.docx"))
+
+
+def test_rejects_duplicate_pair_ids_without_writing_files(tmp_path):
+    form_a, form_b = _exam("甲卷"), _exam("乙卷")
+    form_a["items"].append(dict(form_a["items"][0]))
+    form_b["items"].append(dict(form_b["items"][0]))
+
+    with pytest.raises(ValueError, match="Duplicate pair ID"):
+        export_parallel_docx(form_a, form_b, tmp_path)
+    assert not list(tmp_path.glob("*.docx"))
