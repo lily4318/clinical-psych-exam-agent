@@ -17,6 +17,7 @@ from typing import Any
 from .domain_blueprints import build_child_pair_specs, load_domain_blueprint
 from .export_docx import export_parallel_docx
 from .ollama_provider import OllamaLocalJsonCallback
+from .child_source_fetch import fetch_official_guidance_evidence
 
 LETTERS = "ABCD"
 DRAFT_VERSION = "child-unverified-v0.1"
@@ -252,16 +253,27 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate candidate child/adolescent parallel exams from local Ollama."
     )
-    parser.add_argument(
-        "--evidence", type=Path, required=True,
-        help="JSON source_id -> {url, passage, retrieved_at}; bare URLs are insufficient",
+    evidence_group = parser.add_mutually_exclusive_group(required=True)
+    evidence_group.add_argument(
+        "--evidence", type=Path,
+        help="Existing reviewed JSON: source_id -> {url, passage, retrieved_at}",
+    )
+    evidence_group.add_argument(
+        "--auto-evidence", action="store_true",
+        help="Fetch only the allowlisted official NICE guidance excerpts (internet required)",
     )
     parser.add_argument("--model", default=None, help="Already-installed local model (or OLLAMA_MODEL)")
     parser.add_argument("--items", type=int, default=20, help="Number of items in EACH form")
     parser.add_argument("--version", default=DRAFT_VERSION)
     parser.add_argument("--out", type=Path, default=Path("output/child-docx"))
     args = parser.parse_args()
-    evidence = json.loads(args.evidence.read_text(encoding="utf-8"))
+    if args.auto_evidence:
+        blueprint = load_domain_blueprint()
+        specs = build_child_pair_specs(args.items, blueprint=blueprint)
+        required_ids = {source_id for spec in specs for source_id in spec["source_ids"]}
+        evidence = fetch_official_guidance_evidence(blueprint["sources"], required_ids)
+    else:
+        evidence = json.loads(args.evidence.read_text(encoding="utf-8"))
     model = OllamaLocalJsonCallback(model=args.model)
     result = generate_child_parallel_docx(
         model, evidence, args.out, items_per_form=args.items, version=args.version
