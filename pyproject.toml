@@ -38,6 +38,17 @@ clinical-psych-user-review = "src.export_user_review_packet:main"
 [tool.setuptools]
 packages = ["src"]
 
+# Install immutable exam reference data alongside the wheel (no model downloads).
+[tool.setuptools.data-files]
+"share/clinical-psych-exam-agent/config/domain_blueprints" = ["config/domain_blueprints/child_adolescent.yaml"]
+"share/clinical-psych-exam-agent/data" = [
+  "data/historical_exam_index.csv",
+  "data/official_sources.csv",
+  "data/official_answer_keys.csv",
+  "data/answer_source_catalog.csv",
+  "data/knowledge_sources.csv",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
