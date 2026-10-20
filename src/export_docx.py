@@ -70,6 +70,11 @@ def export_exam_docx(
     document.add_paragraph(f"版本：{version}　題數：{len(exam['items'])}")
     if exam.get("approved_by_user") is not True:
         document.add_paragraph("自動產生之模擬測驗；未標示為使用者正式核可版本。")
+        if exam.get("quality_status") == "未經獨立專家驗證之模擬草稿":
+            document.add_paragraph(
+                "未經獨立專家驗證｜本卷為自動生成之模擬草稿；"
+                "答案及來源支持性尚未經臨床領域獨立專家核對。"
+            )
 
     for number, item in enumerate(exam["items"], start=1):
         document.add_heading(f"{number}. {item['stem']}", level=2)
