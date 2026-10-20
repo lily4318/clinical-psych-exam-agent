@@ -84,11 +84,29 @@ AI 應先讀 `START_HERE.md`，再依 repository 規則自動載入狀態與命�
 
 ## Word 輸出
 
-正式核可後：
+### 新模擬考卷：直接交付兩份 Word，不等待使用者核可
 
-- 若使用者已要求 Word：直接輸出。
-- 若尚未要求 Word：Agent 應主動詢問是否輸出。
-- 預設套件：甲卷、乙卷、答案與解析三個 `.docx`。
+建立甲乙平行卷時，完成命題與自動檢核後應直接交付 **甲卷、乙卷各一份 DOCX**；各卷預設將答案及解析附在後面。自動交付不等於正式核可，不得更新 `formal-v1.0` 或標記為專家驗收合格。
+
+當兩卷結構化 JSON 已存在時，可透過免費、無模型 API 的匯出工具執行：
+
+```bash
+clinical-psych-exam-docx output/form_a.json output/form_b.json --out output/docx
+```
+
+如需提供不含解答的考生版，加上 `--hide-answers`。
+
+若要從**現有已驗證的物質濫用領域 review-v0.2** 直接產出甲乙各20題 Word，則可一行執行：
+
+```bash
+clinical-psych-review-docx --out output/review-docx
+```
+
+此指令從既有 review manifest 組卷並輸出兩份可閱讀 DOCX；它不會自行產生兒童領域新題，也不會把 review 草稿升為正式核可版。匯出器只負責既有 JSON → DOCX；兒童或其他新領域的 AI 命題尚須完成對應藍圖及生成服務整合。若執行環境不能實際建立檔案，不得宣稱已產生下載檔。
+
+### 既有正式版
+
+正式核可後按 `agent/word_export_policy.md`，維持甲卷、乙卷、答案與解析三個 DOCX 的正式版本交付規範；未經核可不得改變正式版本。
 
 ## 開發／測試註記
 
