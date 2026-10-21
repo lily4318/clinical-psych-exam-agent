@@ -84,6 +84,10 @@
 
 任何人都可以把本公開 repo 網址貼給自己的 AI 使用。
 
+### 可攜式 Agent 的標準入口
+
+原有短指令仍以本檔與正式政策為主要依據；為便於不同 AI 工具尋找指令，另提供 [`AGENTS.md`](AGENTS.md)（支援該慣例的 coding agents）、[`.agents/skills/clinical-psych-exam/SKILL.md`](.agents/skills/clinical-psych-exam/SKILL.md)（標準 Agent Skill）及 [`.claude/skills/clinical-psych-exam/SKILL.md`](.claude/skills/clinical-psych-exam/SKILL.md)（Claude Code 發現入口）。這些檔案僅引用同一套既有規則，不代表其他 AI 只貼網址就自動安裝了 Skill、具備執行 Python 的能力或可下載 Word。不能執行或附上 DOCX 時，仍遵守「首次回覆如實說明 Word 尚未交付」的規則。
+
 ### 只想使用 Agent
 
 直接貼「repo 網址＋任務」即可。此模式預設**唯讀使用本 repo**，不應修改原作者 repository。
