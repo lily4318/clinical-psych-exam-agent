@@ -78,6 +78,8 @@
 
 此契約適用所有符合能力的 AI 平台；不要求其他使用者安裝本地 Ollama，亦不允許以 Stub 或無來源的臨床內容冒充已完成的真實命題。
 
+**跨平台交付自動檢查：**其他 AI 產出兩份 DOCX 後，應在有 Python 能力的環境使用 `python -m src.verify_external_delivery 甲卷.docx 乙卷.docx --items N` 檢查檔案結構；操作方式、G1–G6 冷啟動驗收與首次下載連結檢查見 [`docs/CROSS_PLATFORM_ACCEPTANCE.md`](docs/CROSS_PLATFORM_ACCEPTANCE.md)。這個工具**不能**替代使用者在對話平台確認首次下載連結、臨床來源的獨立查核或專家品質驗收。
+
 ## 公開分享模式
 
 任何人都可以把本公開 repo 網址貼給自己的 AI 使用。
