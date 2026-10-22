@@ -21,6 +21,8 @@ SHORT_ANSWER = re.compile(r"^\s*(\d+)[.．]\s*([ABCD])\s*$")
 VERSION = re.compile(r"版本[：:]\s*([^\s　]+)")
 SOURCE_MAPPING = re.compile(r"^第\s*(\d+)\s*題\s*[：:]\s*(\S.*)$")
 ANSWER_HEADING = re.compile(r"^[甲乙]卷\s*[｜|]\s*答案與解析")
+OPTION_RATIONALE = re.compile(r"^\s*([ABCD])(?:\s*選項)?\s*[：:]\s*(.*)$", re.I)
+READER_SECTIONS = ("命題範圍與依據", "答案一覽", "逐題解析", "來源對照與參考資料")
 
 
 def _parse_answers(doc: Any, after: list[str], expected_count: int) -> tuple[dict[int, str], list[str]]:
@@ -62,12 +64,92 @@ def _parse_answers(doc: Any, after: list[str], expected_count: int) -> tuple[dic
     return answers, errors
 
 
+
+def _check_modern_reader_layout(
+    doc: Any, questions: list[str], answers: list[str], expected_count: int
+) -> tuple[list[str], int]:
+    """Validate new reader-facing layout; not a clinical or citation-content audit."""
+    errors: list[str] = []
+    positions: dict[str, int] = {}
+    for section in READER_SECTIONS:
+        indices = [i for i, line in enumerate(answers) if line == section]
+        if len(indices) != 1:
+            errors.append(f"新版考卷缺少或重複章節：{section}")
+        else:
+            positions[section] = indices[0]
+    if len(positions) == len(READER_SECTIONS):
+        indices = [positions[section] for section in READER_SECTIONS]
+        if indices != sorted(indices):
+            errors.append("新版考卷章節順序錯誤：命題範圍→答案一覽→逐題解析→來源對照")
+        if positions["命題範圍與依據"] < positions["答案一覽"]:
+            if not any(
+                answers[i].startswith(("命題範圍：", "考點配置：", "命題依據："))
+                for i in range(positions["命題範圍與依據"] + 1, positions["答案一覽"])
+            ):
+                errors.append("命題範圍與依據區沒有本卷實際內容")
+
+    if any(
+        line.startswith(("版本：", "未標示為使用者正式核可版本", "自動產生之模擬測驗"))
+        for line in questions
+    ):
+        errors.append("試題區含有內部版本或 AI 生成說明")
+
+    if not any(
+        len(table.rows) >= expected_count + 1
+        and len(table.columns) >= 2
+        and table.rows[0].cells[0].text.strip() == "題號"
+        and table.rows[0].cells[1].text.strip() == "答案"
+        for table in doc.tables
+    ):
+        errors.append("新版考卷缺少完整答案一覽表")
+
+    start = positions.get("逐題解析", -1)
+    stop = positions.get("來源對照與參考資料", len(answers))
+    if start < 0:
+        return errors, 0
+    if stop <= start:
+        errors.append("來源對照必須放在全部逐題解析之後")
+        return errors, 0
+
+    headers: list[tuple[int, int]] = []
+    for i in range(start + 1, stop):
+        match = EXPLAINED_ANSWER.match(answers[i]) or SHORT_ANSWER.match(answers[i])
+        if match:
+            headers.append((i, int(match.group(1))))
+    if [n for _, n in headers] != list(range(1, expected_count + 1)):
+        errors.append("新版逐題解析的題號不完整、重複或順序錯誤")
+
+    completed = 0
+    for index, (position, number) in enumerate(headers):
+        end = headers[index + 1][0] if index + 1 < len(headers) else stop
+        chunk = answers[position + 1:end]
+        correct = [line for line in chunk if line.startswith("正解解析：") and line.split("：", 1)[-1].strip()]
+        if len(correct) != 1:
+            errors.append(f"第 {number} 題正解解析缺漏或重複")
+        explanations: dict[str, str] = {}
+        for line in chunk:
+            match = OPTION_RATIONALE.match(line)
+            if match:
+                letter, detail = match.group(1).upper(), match.group(2).strip()
+                if letter in explanations:
+                    errors.append(f"第 {number} 題 {letter} 選項解析重複")
+                explanations[letter] = detail
+        missing = [key for key in "ABCD" if not explanations.get(key)]
+        if missing:
+            errors.append(f"第 {number} 題缺少 A–D 逐項解析：{','.join(missing)}")
+        if len(correct) == 1 and not missing:
+            completed += 1
+    return errors, completed
+
+
 def inspect_form(path: str | Path, form: str, item_count: int) -> dict[str, Any]:
     """Check a DOCX produced by either this repo or an external AI."""
     path = Path(path)
     errors: list[str] = []
     result: dict[str, Any] = {"form": form, "file": path.name, "ok": False,
-                               "questions": 0, "answers": 0, "version": None, "errors": errors}
+                               "questions": 0, "answers": 0, "version": None, "errors": errors,
+                               "reader_layout": "unknown", "complete_option_rationales": None,
+                               "warnings": []}
     if path.suffix.lower() != ".docx" or not path.is_file() or path.stat().st_size == 0:
         errors.append("檔案不存在、為空或不是 DOCX")
         return result
@@ -98,6 +180,20 @@ def inspect_form(path: str | Path, form: str, item_count: int) -> dict[str, Any]
         return result
     split = answer_positions[0]
     question_lines, answer_lines = lines[:split], lines[split + 1:]
+    modern = identifier.startswith("exam_version:") or any(
+        section in answer_lines for section in READER_SECTIONS
+    )
+    result["reader_layout"] = "modern_strict" if modern else "legacy_compatible"
+    if modern:
+        layout_errors, completed = _check_modern_reader_layout(
+            doc, question_lines, answer_lines, item_count
+        )
+        errors.extend(layout_errors)
+        result["complete_option_rationales"] = completed
+    else:
+        result["warnings"].append(
+            "舊版文件僅通過相容性結構檢查；未驗證 A–D 逐項解析及新版章節順序"
+        )
     question_stems: list[str] = []
     question_positions = []
     for i, text in enumerate(question_lines):
@@ -141,6 +237,11 @@ def inspect_form(path: str | Path, form: str, item_count: int) -> dict[str, Any]
         errors.append("卷末題號與來源 ID 對照不完整")
     if appendix_sources and any("未提供來源 ID" in refs for refs in appendix_sources.values()):
         errors.append("卷末來源對照不可含未提供來源 ID")
+    if modern:
+        if source_lines:
+            errors.append("新版 Word 應將來源 ID 集中於全部解析後的來源對照")
+        if set(appendix_sources) != set(range(1, item_count + 1)):
+            errors.append("新版卷末來源對照題號不完整")
     result["ok"] = not errors
     return result
 
