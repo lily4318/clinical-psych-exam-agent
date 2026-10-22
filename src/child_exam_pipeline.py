@@ -241,6 +241,14 @@ def generate_child_parallel_docx(
         "quality_status": "未經獨立專家驗證之模擬草稿",
         "approved_by_user": False,
         "domain_id": "child_adolescent",
+        "domain_name": blueprint["scope"]["content_domain"],
+        "category_labels": {
+            key: category["name"] for key, category in blueprint["categories"].items()
+        },
+        "source_catalog": {
+            key: {"title": source["title"], "url": source["url"]}
+            for key, source in blueprint["sources"].items()
+        },
     }
     return export_parallel_docx(
         {"form": "甲卷", "items": a_items, **common},
