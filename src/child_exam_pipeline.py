@@ -12,10 +12,12 @@ import json
 import re
 from collections.abc import Callable, Mapping
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
 from .domain_blueprints import build_child_pair_specs, load_domain_blueprint
 from .export_docx import export_parallel_docx
+from .verify_external_delivery import verify_pair
 from .ollama_provider import OllamaLocalJsonCallback
 from .child_source_fetch import fetch_official_guidance_evidence
 
@@ -180,6 +182,72 @@ def _check_item(
     return errors
 
 
+def _export_verified_child_pair(
+    form_a: dict[str, Any],
+    form_b: dict[str, Any],
+    out_dir: str | Path,
+    *,
+    items_per_form: int,
+) -> dict[str, Path]:
+    """Stage and check BOTH Word files before publishing either one.
+
+    Structural G3 checking is deterministic; it does not prove any clinical
+    claim or that an external chat host can offer working download links (G4).
+    Existing files are not overwritten and a partial publication is rolled back.
+    """
+    target = Path(out_dir)
+    target.mkdir(parents=True, exist_ok=True)
+    with TemporaryDirectory(prefix=".child-docx-stage-", dir=target) as tmp:
+        staged = export_parallel_docx(form_a, form_b, tmp)
+        verification = verify_pair(
+            staged["form_a"], staged["form_b"], items_per_form
+        )
+        forms = verification.get("files") or {}
+        strict = verification.get("ok") is True and all(
+            isinstance(forms.get(key), dict)
+            and forms[key].get("ok") is True
+            and forms[key].get("reader_layout") == "modern_strict"
+            and forms[key].get("questions") == items_per_form
+            and forms[key].get("answers") == items_per_form
+            and forms[key].get("complete_option_rationales") == items_per_form
+            for key in ("form_a", "form_b")
+        )
+        if not strict:
+            failures = [
+                str(error)
+                for form in forms.values()
+                if isinstance(form, dict)
+                for error in form.get("errors", [])
+            ]
+            raise ValueError(
+                "Generated DOCX failed strict structural verification: "
+                + ("; ".join(failures) or "incomplete strict acceptance metrics")
+            )
+
+        destinations = {
+            key: target / staged[key].name for key in ("form_a", "form_b")
+        }
+        for dest in destinations.values():
+            if dest.exists():
+                raise FileExistsError(
+                    f"Refusing to overwrite an existing exam Word: {dest}"
+                )
+
+        committed: list[Path] = []
+        try:
+            for key in ("form_a", "form_b"):
+                dest = destinations[key]
+                # The staging directory shares its filesystem with target.
+                staged[key].replace(dest)
+                committed.append(dest)
+        except Exception:
+            # A one-sided output must not be presented as a completed pair.
+            for dest in committed:
+                dest.unlink(missing_ok=True)
+            raise
+        return destinations
+
+
 def generate_child_parallel_docx(
     callback: Callable[[dict[str, Any]], dict[str, Any]],
     evidence: Mapping[str, Any],
@@ -191,8 +259,10 @@ def generate_child_parallel_docx(
     """One explicit generation pass; fail closed before writing either Word file.
 
     This checks schema, sources referenced, paired metadata and answer positions.
-    It does NOT prove source-claim semantic support or parallel psychometric
-    equivalence, and never marks output as expert-validated or formally approved.
+    It also stages and structurally verifies BOTH final Word files before publishing.
+    It does NOT prove source-claim semantic support, host download access or
+    psychometric equivalence, and never marks output as expert-validated
+    or formally approved.
     """
     if not callable(callback):
         raise TypeError("An actual model callback is required; no Stub fallback.")
@@ -250,10 +320,11 @@ def generate_child_parallel_docx(
             for key, source in blueprint["sources"].items()
         },
     }
-    return export_parallel_docx(
+    return _export_verified_child_pair(
         {"form": "甲卷", "items": a_items, **common},
         {"form": "乙卷", "items": b_items, **common},
         out_dir,
+        items_per_form=items_per_form,
     )
 
 
