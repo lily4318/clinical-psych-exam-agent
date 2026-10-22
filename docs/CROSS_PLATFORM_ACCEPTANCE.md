@@ -55,6 +55,8 @@ AI 不必使用作者的 Ollama、付費模型 API 或 GitHub 寫入權限；有
 - PR #8 已加入首次附件交付契約，PR #9 已加入與 AI 平台無關的本機 DOCX 結構驗收器。前後兩個 ChatGPT 試驗分屬不同版本，不得用單次後測成功宣稱長期穩定性。
 - **分母明確列示**：初版 G4 0/1、修改後 G4 1/1（使用者驗證）；總共2次已觀察的3題任務，但不能合併成跨版本的可靠成功率。追問後的補交成功另列，不計首次交付分子。
 - 其他平台支援格式：`AGENTS.md`（coding agents）、`.agents/skills/clinical-psych-exam/SKILL.md`（可攜 Agent Skills）、`.claude/skills/clinical-psych-exam/SKILL.md`（Claude Code 載入入口）。**這些僅改善發現／啟動方式，GitHub 網址不會自動替所有聊天平台安裝 Skill 或提供下載附件權限。**
+- **2026-10-22「製作模擬考卷 DOCX」甲乙各10題冷啟動（T3）**：新對話第一次最終回覆已出現**兩個不同的 DOCX 下載連結**，名稱為 `child_adolescent_exam_A_10q_20261022.docx`、`child_adolescent_exam_B_10q_20261022.docx`，未見需要追問才補交連結。AI 回報每卷10題與7頁，配置 ADHD2、ASD2、智能／神經發展1、兒少衡鑑2、情緒／風險2、治療／系統介入1，合計10題／卷；另回報卷末答案解析與內部結構檢查。但**目前未取得該次的兩份原始檔案或使用者逐一下載確認，因此 G3 獨立結構檢查為 unknown，G4「首次連結存在」為已觀察通過、G4「連結實際可下載開啟」為 unknown；G5 臨床來源與專家品質尚未驗證**。不得將 AI 自述的檢查當作已執行 GitHub 驗證器。具體分子分母、未知值及追蹤見 [本次 YAML trial 記錄](evals/2026-10-22-chatgpt-10q-coldstart.yaml)。
+- **累計後測需分層報告**：修正後 ChatGPT 3題已有 G4 實際可下載確認 1/1；本次10題的**首次兩連結出現**為 1/1，但實際下載確認為 **0筆可評分試驗**，不是0/1失敗或1/1成功。兩者不同強度證據，不能合併聲稱10題下載通過或跨平台成功。
 - Claude、Gemini 均尚未真正執行本測試，成功率、token、費用與延遲一律 unknown，不能臆測。
 - 不將 GitHub Actions pytest 成功率解釋成跨平台使用成功率或新題品質合格率。
 
