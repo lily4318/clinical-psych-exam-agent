@@ -1,0 +1,66 @@
+# Auditable external cold-start record. Links from a different chat/session are
+# intentionally not used as file paths or assertions of downloadable bytes.
+trial_id: chatgpt-20261022-child-10q-coldstart-01
+date_local: "2026-10-22"
+timezone: Asia/Taipei
+conversation_title: "製作模擬考卷 DOCX"
+platform: ChatGPT
+model: unknown
+repository: lily4318/clinical-psych-exam-agent
+repository_main_sha_observed: "159a12c6b7ee1e9d6809696dc9ef801e3fd67ae8"
+repository_sha_read_by_test_agent: unknown
+requested_domain: child_adolescent
+requested_items_per_form: 10
+first_final_response:
+  occurred: true
+  link_presence:
+    form_a: observed
+    form_b: observed
+  files_claimed:
+    form_a: "child_adolescent_exam_A_10q_20261022.docx"
+    form_b: "child_adolescent_exam_B_10q_20261022.docx"
+  actual_download_and_open:
+    form_a: not_yet_confirmed
+    form_b: not_yet_confirmed
+  file_bytes_independently_available: false
+  follow_up_required_to_get_links: false
+generation_claims:
+  items_per_form: 10
+  pages_per_form: 7
+  answers_and_distractor_rationales: claimed
+  source_ids_per_item: claimed
+  quality_label: not_independently_verified
+  applied_native_repo_validator: no_execution_evidence
+  blueprint_allocation_each_form:
+    ADHD_and_executive_function: 2
+    ASD_and_social_communication: 2
+    intellectual_and_neurodevelopmental: 1
+    child_assessment: 2
+    mood_and_risk: 2
+    therapy_and_system_intervention: 1
+acceptance:
+  G1_rules_loaded: unverified_no_file_read_trace
+  G2_correct_exam_and_blueprint: partial_self_report_only
+  G3_docx_structure: unverified_no_original_files
+  G4_first_response_two_links_present: observed_pass
+  G4_downloadable_and_openable: unknown
+  G5_independent_clinical_evidence: not_tested
+  G6_trace: partial
+  overall_full_acceptance: not_yet_verified
+measures:
+  first_response_two_links_present_trials: {passed: 1, total_observed: 1}
+  first_response_download_confirmed_trials: {passed: 0, total_verified: 0}
+  G3_independent_file_checks: {passed: 0, total_verified: 0}
+  independently_reviewed_new_items: {passed: 0, total_verified: 0}
+  token_usage: unknown
+  cost: unknown
+  elapsed_seconds: unknown
+outstanding:
+  - "This chat cannot re-open the two DOCX produced in another conversation; do not invent sandbox links."
+  - "A user download/open confirmation for THIS 10-item trial has not yet been recorded."
+  - "Both DOCX and their actual content still require independent structural verification."
+  - "Sources and clinical correctness are not independently corroborated."
+  - "No Claude or Gemini execution has been observed."
+notes:
+  - "Distinguish initial three-item failed attempt, three-item verified recovery, and this ten-item run."
+  - "First-response link presence is not a valid substitute for actual file accessibility."
