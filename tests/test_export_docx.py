@@ -96,7 +96,7 @@ def test_existing_review_manifest_exports_complete_two_word_files(tmp_path):
         texts = [paragraph.text for paragraph in doc.paragraphs]
         assert any(f"臨床心理師模擬測驗｜{expected_form}" in t for t in texts)
         assert any(f"{expected_form}｜答案與解析" in t for t in texts)
-        assert any("未標示為使用者正式核可版本" in t for t in texts)
+        assert any("未經獨立臨床專家逐題驗證" in t for t in texts)
         assert sum(t.startswith("正解解析：") for t in texts) == 20
         assert len(doc.tables) == 1
         assert len(doc.tables[0].rows) == 21
