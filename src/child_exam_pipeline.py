@@ -259,8 +259,10 @@ def generate_child_parallel_docx(
     """One explicit generation pass; fail closed before writing either Word file.
 
     This checks schema, sources referenced, paired metadata and answer positions.
-    It does NOT prove source-claim semantic support or parallel psychometric
-    equivalence, and never marks output as expert-validated or formally approved.
+    It also stages and structurally verifies BOTH final Word files before publishing.
+    It does NOT prove source-claim semantic support, host download access or
+    psychometric equivalence, and never marks output as expert-validated
+    or formally approved.
     """
     if not callable(callback):
         raise TypeError("An actual model callback is required; no Stub fallback.")
