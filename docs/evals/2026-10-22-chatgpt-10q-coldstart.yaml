@@ -20,8 +20,8 @@ first_final_response:
     form_a: "child_adolescent_exam_A_10q_20261022.docx"
     form_b: "child_adolescent_exam_B_10q_20261022.docx"
   actual_download_and_open:
-    form_a: not_yet_confirmed
-    form_b: not_yet_confirmed
+    form_a: confirmed_by_user
+    form_b: confirmed_by_user
   file_bytes_independently_available: false
   follow_up_required_to_get_links: false
 generation_claims:
@@ -43,13 +43,13 @@ acceptance:
   G2_correct_exam_and_blueprint: partial_self_report_only
   G3_docx_structure: unverified_no_original_files
   G4_first_response_two_links_present: observed_pass
-  G4_downloadable_and_openable: unknown
+  G4_downloadable_and_openable: confirmed_by_user_pass
   G5_independent_clinical_evidence: not_tested
   G6_trace: partial
   overall_full_acceptance: not_yet_verified
 measures:
   first_response_two_links_present_trials: {passed: 1, total_observed: 1}
-  first_response_download_confirmed_trials: {passed: 0, total_verified: 0}
+  first_response_download_confirmed_trials: {passed: 1, total_verified: 1}
   G3_independent_file_checks: {passed: 0, total_verified: 0}
   independently_reviewed_new_items: {passed: 0, total_verified: 0}
   token_usage: unknown
@@ -57,10 +57,10 @@ measures:
   elapsed_seconds: unknown
 outstanding:
   - "This chat cannot re-open the two DOCX produced in another conversation; do not invent sandbox links."
-  - "A user download/open confirmation for THIS 10-item trial has not yet been recorded."
+  - "User confirmed successful download and opening of both 10-item files on 2026-10-22."
   - "Both DOCX and their actual content still require independent structural verification."
   - "Sources and clinical correctness are not independently corroborated."
   - "No Claude or Gemini execution has been observed."
 notes:
   - "Distinguish initial three-item failed attempt, three-item verified recovery, and this ten-item run."
-  - "First-response link presence is not a valid substitute for actual file accessibility."
+  - "First-response link presence and user-confirmed accessibility are logged separately; original file bytes are still not available here."
