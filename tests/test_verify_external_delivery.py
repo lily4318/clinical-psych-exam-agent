@@ -137,7 +137,10 @@ def test_repository_exporter_is_accepted(tmp_path):
                     "stem": f"{form} 測試題目 {i}",
                     "options": {letter: f"測試選項 {letter}" for letter in "ABCD"},
                     "correct_answer": "A",
-                    "rationale": {"correct": "這是測試解析。"},
+                    "rationale": {
+                        "correct": "這是測試解析。",
+                        **{letter: f"{letter} 選項測試解析。" for letter in "ABCD"},
+                    },
                     "sources": ["UNIT-TEST-ONLY"],
                 }
                 for i in (1, 2)

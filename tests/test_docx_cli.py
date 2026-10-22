@@ -23,7 +23,13 @@ def _exam(form: str) -> dict:
                     "D": "選項丁",
                 },
                 "correct_answer": "C",
-                "rationale": {"correct": "測試解析"},
+                "rationale": {
+                    "correct": "測試解析",
+                    "A": "A選項的排版測試解析。",
+                    "B": "B選項的排版測試解析。",
+                    "C": "C選項的排版測試解析。",
+                    "D": "D選項的排版測試解析。",
+                },
                 "sources": ["SYNTHETIC-TEST-SOURCE"],
             }
         ],

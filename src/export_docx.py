@@ -36,10 +36,24 @@ def _validate_exam(exam: dict[str, Any], *, include_answers: bool) -> None:
             if not isinstance(answer, str) or answer not in {"A", "B", "C", "D"}:
                 raise ValueError(f"Item {number} requires one valid answer letter.")
             rationale = item.get("rationale")
-            if not isinstance(rationale, dict) or not str(
-                rationale.get("correct", "")
-            ).strip():
+            if not isinstance(rationale, dict):
                 raise ValueError(f"Item {number} requires a correct-answer rationale.")
+            for key in ("correct", *"ABCD"):
+                detail = rationale.get(key)
+                if not isinstance(detail, str) or not detail.strip():
+                    raise ValueError(
+                        f"Item {number} requires non-empty {key} rationale."
+                    )
+            sources = item.get("sources")
+            if (
+                not isinstance(sources, list)
+                or not sources
+                or any(not isinstance(source, str) or not source.strip() for source in sources)
+                or len(set(sources)) != len(sources)
+            ):
+                raise ValueError(
+                    f"Item {number} requires unique non-empty source IDs."
+                )
 
 
 def _unique_sources(exam: dict[str, Any]) -> list[str]:
@@ -185,9 +199,8 @@ def export_exam_docx(
             rationale = item["rationale"]
             document.add_paragraph(f"正解解析：{rationale['correct']}")
             for letter in "ABCD":
-                detail = str(rationale.get(letter, "")).strip()
-                if detail:
-                    document.add_paragraph(f"{letter} 選項：{detail}")
+                # Preflight guarantees all four explanations exist; never silently omit one.
+                document.add_paragraph(f"{letter} 選項：{rationale[letter].strip()}")
 
         _add_source_appendix(document, exam)
         if exam.get("approved_by_user") is not True:
