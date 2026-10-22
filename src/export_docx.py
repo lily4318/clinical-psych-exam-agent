@@ -84,7 +84,7 @@ def _add_scope_and_basis(document: Document, exam: dict[str, Any]) -> None:
     ):
         years = sorted(set(years))
         document.add_paragraph(
-            f"歷屆試題參考年度：{years[0]}–{years[-1]} 年（僅於該卷確實採用時列示）"
+            f"歷屆試題參考年度：{years[0]}–{years[-1]} 年"
         )
 
     basis = exam.get("basis_note")
