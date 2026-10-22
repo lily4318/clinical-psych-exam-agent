@@ -19,6 +19,7 @@ OPTION = re.compile(r"^\s*[(（]([ABCD])[)）]\s*(\S.*)$", re.I)
 EXPLAINED_ANSWER = re.compile(r"^\s*第\s*(\d+)\s*題\s*[｜|：:]\s*答案\s*([ABCD])\s*$")
 SHORT_ANSWER = re.compile(r"^\s*(\d+)[.．]\s*([ABCD])\s*$")
 VERSION = re.compile(r"版本[：:]\s*([^\s　]+)")
+SOURCE_MAPPING = re.compile(r"^第\s*(\d+)\s*題\s*[：:]\s*(\S.*)$")
 ANSWER_HEADING = re.compile(r"^[甲乙]卷\s*[｜|]\s*答案與解析")
 
 
@@ -81,11 +82,14 @@ def inspect_form(path: str | Path, form: str, item_count: int) -> dict[str, Any]
         errors.append("文件開頭缺少正確卷別的模擬考標題")
     early_text = "\n".join(lines[:10])
     match = VERSION.search(early_text)
-    result["version"] = match.group(1) if match else None
-    if not match:
-        errors.append("缺少版本標示")
+    identifier = doc.core_properties.identifier or ""
+    hidden_version = identifier.removeprefix("exam_version:") if identifier.startswith("exam_version:") else None
+    result["version"] = match.group(1) if match else hidden_version
+    # New reader-facing papers put version in DOCX properties, not the question text.
+    # External documents without version evidence remain distinguishable as unknown.
     if not ("未經獨立專家驗證" in "\n".join(lines) or
-            "未標示為使用者正式核可版本" in "\n".join(lines)):
+            "未標示為使用者正式核可版本" in "\n".join(lines) or
+            "未經獨立臨床專家逐題驗證" in "\n".join(lines)):
         errors.append("缺少未經獨立專家驗證／非正式核可標示")
 
     answer_positions = [i for i, text in enumerate(lines) if ANSWER_HEADING.match(text)]
@@ -119,8 +123,24 @@ def inspect_form(path: str | Path, form: str, item_count: int) -> dict[str, Any]
     if len(explanation_lines) != item_count:
         errors.append(f"有效正解解析數量不符：{len(explanation_lines)}/{item_count}")
     source_lines = [line for line in answer_lines if (line.startswith("來源 ID：") or line.startswith("資料來源 ID：")) and line.split("：", 1)[-1].strip()]
-    if len(source_lines) != item_count:
-        errors.append(f"逐題來源 ID 數量不符：{len(source_lines)}/{item_count}")
+    appendix_positions = [i for i, line in enumerate(answer_lines) if line == "來源對照與參考資料"]
+    appendix_sources = {}
+    if len(appendix_positions) == 1:
+        appendix = answer_lines[appendix_positions[0] + 1:]
+        for line in appendix:
+            match = SOURCE_MAPPING.match(line)
+            if match:
+                number, refs = int(match.group(1)), match.group(2).strip()
+                if number in appendix_sources:
+                    errors.append(f"來源對照重複題號：{number}")
+                appendix_sources[number] = refs
+    if source_lines:
+        if len(source_lines) != item_count:
+            errors.append(f"逐題來源 ID 數量不符：{len(source_lines)}/{item_count}")
+    elif set(appendix_sources) != set(range(1, item_count + 1)):
+        errors.append("卷末題號與來源 ID 對照不完整")
+    if appendix_sources and any("未提供來源 ID" in refs for refs in appendix_sources.values()):
+        errors.append("卷末來源對照不可含未提供來源 ID")
     result["ok"] = not errors
     return result
 

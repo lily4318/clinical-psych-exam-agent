@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -41,13 +42,101 @@ def _validate_exam(exam: dict[str, Any], *, include_answers: bool) -> None:
                 raise ValueError(f"Item {number} requires a correct-answer rationale.")
 
 
+def _unique_sources(exam: dict[str, Any]) -> list[str]:
+    return list(dict.fromkeys(
+        str(source_id)
+        for item in exam["items"]
+        for source_id in (item.get("sources") or [])
+        if str(source_id).strip()
+    ))
+
+
+def _add_scope_and_basis(document: Document, exam: dict[str, Any]) -> None:
+    """Only reader-relevant exam-specific scope and evidence, never agent instructions."""
+    document.add_heading("命題範圍與依據", level=1)
+
+    domain = exam.get("domain_name")
+    if not domain and exam.get("domain_id") == "child_adolescent":
+        domain = "兒童／青少年臨床心理"
+    if isinstance(domain, str) and domain.strip():
+        document.add_paragraph(f"命題範圍：{domain.strip()}")
+
+    category_labels = exam.get("category_labels") or {}
+    allocations = Counter(
+        str(item["category"])
+        for item in exam["items"]
+        if item.get("category")
+    )
+    if allocations:
+        description = "、".join(
+            f"{category_labels.get(key, key)} {count} 題"
+            for key, count in allocations.items()
+        )
+        document.add_paragraph(f"考點配置：{description}")
+
+    scope_note = exam.get("scope_note")
+    if isinstance(scope_note, str) and scope_note.strip():
+        document.add_paragraph(scope_note.strip())
+
+    years = exam.get("historical_years")
+    if isinstance(years, list) and years and all(
+        isinstance(year, int) and not isinstance(year, bool) for year in years
+    ):
+        years = sorted(set(years))
+        document.add_paragraph(
+            f"歷屆試題參考年度：{years[0]}–{years[-1]} 年"
+        )
+
+    basis = exam.get("basis_note")
+    if isinstance(basis, str) and basis.strip():
+        document.add_paragraph(f"命題依據：{basis.strip()}")
+    elif _unique_sources(exam):
+        document.add_paragraph(
+            "命題依據：各題所列之參考來源，詳見卷末「來源對照與參考資料」。"
+        )
+
+
+def _add_source_appendix(document: Document, exam: dict[str, Any]) -> None:
+    """Source mapping after all answer explanations; never fabricate bibliographies."""
+    used_ids = _unique_sources(exam)
+    if not used_ids:
+        return
+    document.add_heading("來源對照與參考資料", level=1)
+    document.add_heading("題號與來源 ID 對照", level=2)
+    for number, item in enumerate(exam["items"], start=1):
+        ids = [
+            str(source_id).strip()
+            for source_id in (item.get("sources") or [])
+            if str(source_id).strip()
+        ]
+        document.add_paragraph(
+            f"第 {number} 題：{', '.join(ids) if ids else '未提供來源 ID'}"
+        )
+
+    catalog = exam.get("source_catalog") or {}
+    referenced = [
+        (source_id, catalog.get(source_id))
+        for source_id in used_ids
+        if isinstance(catalog.get(source_id), dict)
+    ]
+    if referenced:
+        document.add_heading("參考來源", level=2)
+        for source_id, source in referenced:
+            title = str(source.get("title") or "").strip()
+            url = str(source.get("url") or "").strip()
+            if title:
+                document.add_paragraph(f"[{source_id}] {title}")
+            if url.startswith("https://"):
+                document.add_paragraph(url)
+
+
 def export_exam_docx(
     exam: dict[str, Any],
     out_dir: str | Path,
     *,
     include_answers: bool = True,
 ) -> Path:
-    """Export an exam to real Word; optionally append its key and rationales."""
+    """Export a reader-facing Word: questions first, analysis, then source mapping."""
     _validate_exam(exam, include_answers=include_answers)
     destination = Path(out_dir)
     destination.mkdir(parents=True, exist_ok=True)
@@ -67,14 +156,8 @@ def export_exam_docx(
     title = document.add_heading(f"臨床心理師模擬測驗｜{exam['form']}", 0)
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     version = str(exam.get("version") or "draft")
-    document.add_paragraph(f"版本：{version}　題數：{len(exam['items'])}")
-    if exam.get("approved_by_user") is not True:
-        document.add_paragraph("自動產生之模擬測驗；未標示為使用者正式核可版本。")
-        if exam.get("quality_status") == "未經獨立專家驗證之模擬草稿":
-            document.add_paragraph(
-                "未經獨立專家驗證｜本卷為自動生成之模擬草稿；"
-                "答案及來源支持性尚未經臨床領域獨立專家核對。"
-            )
+    # Provenance remains machine-readable but is not printed as student-facing text.
+    document.core_properties.identifier = f"exam_version:{version}"
 
     for number, item in enumerate(exam["items"], start=1):
         document.add_heading(f"{number}. {item['stem']}", level=2)
@@ -84,7 +167,9 @@ def export_exam_docx(
     if include_answers:
         document.add_page_break()
         document.add_heading(f"{exam['form']}｜答案與解析", 0)
-        document.add_paragraph("此處為教師／自學參考，考生作答時請勿提前閱讀。")
+        _add_scope_and_basis(document, exam)
+        document.add_heading("答案一覽", level=1)
+
         answer_table = document.add_table(rows=1, cols=2)
         answer_table.style = "Table Grid"
         answer_table.rows[0].cells[0].text = "題號"
@@ -94,17 +179,21 @@ def export_exam_docx(
             cells[0].text = str(number)
             cells[1].text = item["correct_answer"]
 
+        document.add_heading("逐題解析", level=1)
         for number, item in enumerate(exam["items"], start=1):
-            document.add_heading(f"{number}. {item['correct_answer']}", level=2)
+            document.add_heading(f"第 {number} 題｜答案 {item['correct_answer']}", level=2)
             rationale = item["rationale"]
             document.add_paragraph(f"正解解析：{rationale['correct']}")
             for letter in "ABCD":
                 detail = str(rationale.get(letter, "")).strip()
                 if detail:
-                    document.add_paragraph(f"{letter}：{detail}")
-            source_ids = item.get("sources") or []
-            if source_ids:
-                document.add_paragraph("來源 ID：" + ", ".join(map(str, source_ids)))
+                    document.add_paragraph(f"{letter} 選項：{detail}")
+
+        _add_source_appendix(document, exam)
+        if exam.get("approved_by_user") is not True:
+            document.add_paragraph(
+                "本卷為非官方模擬試題；內容尚未經獨立臨床專家逐題驗證。"
+            )
 
     slug = "form_a" if exam["form"] == "甲卷" else "form_b"
     name = f"{slug}_{_safe_slug(version)}.docx"

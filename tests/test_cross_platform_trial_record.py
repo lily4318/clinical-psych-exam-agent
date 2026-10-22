@@ -26,15 +26,15 @@ def test_10q_link_presence_is_not_conflated_with_download_success():
     reply = trial["first_final_response"]
     assert reply["occurred"] is True
     assert set(reply["link_presence"].values()) == {"observed"}
-    assert set(reply["actual_download_and_open"].values()) == {"not_yet_confirmed"}
+    assert set(reply["actual_download_and_open"].values()) == {"confirmed_by_user"}
     assert reply["file_bytes_independently_available"] is False
     assert trial["acceptance"]["G4_first_response_two_links_present"] == "observed_pass"
-    assert trial["acceptance"]["G4_downloadable_and_openable"] == "unknown"
+    assert trial["acceptance"]["G4_downloadable_and_openable"] == "confirmed_by_user_pass"
     assert trial["measures"]["first_response_two_links_present_trials"] == {
         "passed": 1, "total_observed": 1
     }
     assert trial["measures"]["first_response_download_confirmed_trials"] == {
-        "passed": 0, "total_verified": 0
+        "passed": 1, "total_verified": 1
     }
 
 
@@ -55,4 +55,4 @@ def test_public_acceptance_ledger_links_trial_without_upgrading_status():
     assert RECORD.name in doc
     assert "首次連結存在" in doc
     assert "尚未驗證" in doc
-    assert "0筆可評分試驗" in doc
+    assert "下載開啟" in doc

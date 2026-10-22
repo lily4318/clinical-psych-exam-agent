@@ -94,10 +94,14 @@ def test_child_pipeline_delivers_two_real_word_files_with_answers(tmp_path, coun
         paragraphs = "\n".join(paragraph.text for paragraph in doc.paragraphs)
         assert form in paragraphs
         assert "答案與解析" in paragraphs
-        assert f"題數：{count}" in paragraphs
-        assert "未標示為使用者正式核可版本" in paragraphs
-        assert "未經獨立專家驗證" in paragraphs
-        assert "來源 ID：" in paragraphs
+        assert "命題範圍與依據" in paragraphs
+        assert "命題範圍：兒童／青少年" in paragraphs
+        assert "考點配置：" in paragraphs
+        assert "來源對照與參考資料" in paragraphs
+        assert "第 1 題：" in paragraphs
+        assert "未經獨立臨床專家逐題驗證" in paragraphs
+        assert "版本：" not in paragraphs
+        assert "未標示為使用者正式核可版本" not in paragraphs
         assert paragraphs.count("正解解析：") == count
         assert len(doc.tables[0].rows) == count + 1
 

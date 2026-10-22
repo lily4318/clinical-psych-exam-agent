@@ -46,10 +46,14 @@ def test_exports_two_real_word_documents_with_answers(tmp_path):
         assert "(C) 多資訊來源與發展史" in paragraph_text
         assert f"{form}｜答案與解析" in paragraph_text
         assert "正解解析：應整合不同來源與發展史。" in paragraph_text
-        assert "來源 ID：TEST-SRC-001" in paragraph_text
+        assert "命題範圍與依據" in paragraph_text
+        assert "來源對照與參考資料" in paragraph_text
+        assert "第 1 題：TEST-SRC-001" in paragraph_text
+        assert "版本：" not in paragraph_text
+        assert doc.core_properties.identifier == "exam_version:child-review-v0.1"
         assert len(doc.tables) == 1
         assert doc.tables[0].rows[1].cells[1].text == "C"
-        assert "未標示為使用者正式核可版本" in paragraph_text
+        assert "未經獨立臨床專家逐題驗證" in paragraph_text
 
 
 def test_exam_only_word_hides_answer_key_and_rationale(tmp_path):
@@ -92,7 +96,7 @@ def test_existing_review_manifest_exports_complete_two_word_files(tmp_path):
         texts = [paragraph.text for paragraph in doc.paragraphs]
         assert any(f"臨床心理師模擬測驗｜{expected_form}" in t for t in texts)
         assert any(f"{expected_form}｜答案與解析" in t for t in texts)
-        assert any("未標示為使用者正式核可版本" in t for t in texts)
+        assert any("未經獨立臨床專家逐題驗證" in t for t in texts)
         assert sum(t.startswith("正解解析：") for t in texts) == 20
         assert len(doc.tables) == 1
         assert len(doc.tables[0].rows) == 21

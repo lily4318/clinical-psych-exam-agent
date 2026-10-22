@@ -62,7 +62,10 @@ def test_cli_delivers_two_readable_word_files_with_answer_appendix(tmp_path):
         assert "測試題幹" in paragraphs
         assert "答案與解析" in paragraphs
         assert "正解解析：測試解析" in paragraphs
-        assert "來源 ID：SYNTHETIC-TEST-SOURCE" in paragraphs
+        assert "命題範圍與依據" in paragraphs
+        assert "來源對照與參考資料" in paragraphs
+        assert "第 1 題：SYNTHETIC-TEST-SOURCE" in paragraphs
+        assert "版本：" not in paragraphs
         assert doc.tables[0].rows[1].cells[1].text == "C"
 
 
