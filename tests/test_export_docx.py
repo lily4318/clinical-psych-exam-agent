@@ -53,7 +53,7 @@ def test_exports_two_real_word_documents_with_answers(tmp_path):
         assert doc.core_properties.identifier == "exam_version:child-review-v0.1"
         assert len(doc.tables) == 1
         assert doc.tables[0].rows[1].cells[1].text == "C"
-        assert "未標示為使用者正式核可版本" in paragraph_text
+        assert "未經獨立臨床專家逐題驗證" in paragraph_text
 
 
 def test_exam_only_word_hides_answer_key_and_rationale(tmp_path):
