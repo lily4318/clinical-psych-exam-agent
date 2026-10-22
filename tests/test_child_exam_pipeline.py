@@ -231,3 +231,106 @@ def test_cannot_fall_back_to_stub_when_no_callable(tmp_path):
     with pytest.raises(TypeError, match="actual model callback"):
         generate_child_parallel_docx(None, _evidence(), tmp_path, items_per_form=1)
     assert not list(tmp_path.glob("*.docx"))
+
+
+def test_default_20q_full_pipeline_strictly_verifies_both_word_files(tmp_path):
+    """A 20-item structure smoke with FakeModel, NOT a live clinical inference trial."""
+    from collections import Counter
+
+    from src.domain_blueprints import build_child_pair_specs
+    from src.verify_external_delivery import verify_pair
+
+    model = FakeModel()
+    paths = generate_child_parallel_docx(model, _evidence(), tmp_path)
+    assert len(model.calls) == 20
+    assert len(list(tmp_path.glob("*.docx"))) == 2
+    assert not list(tmp_path.glob(".child-docx-stage-*"))
+
+    report = verify_pair(paths["form_a"], paths["form_b"], 20)
+    assert report["ok"], report
+    for key, form in (("form_a", "甲卷"), ("form_b", "乙卷")):
+        entry = report["files"][key]
+        assert entry["reader_layout"] == "modern_strict"
+        assert entry["questions"] == 20
+        assert entry["answers"] == 20
+        assert entry["complete_option_rationales"] == 20
+        assert not entry["errors"]
+        doc = Document(paths[key])
+        paragraph_text = "\n".join(p.text for p in doc.paragraphs)
+        assert doc.core_properties.identifier.startswith("exam_version:")
+        assert f"{form}｜答案與解析" in paragraph_text
+        assert paragraph_text.count("正解解析：") == 20
+        assert paragraph_text.count("A 選項：") == 20
+        assert paragraph_text.count("B 選項：") == 20
+        assert paragraph_text.count("C 選項：") == 20
+        assert paragraph_text.count("D 選項：") == 20
+        assert len(doc.tables[0].rows) == 21
+        assert "未經獨立臨床專家逐題驗證" in paragraph_text
+        assert "版本：" not in paragraph_text
+
+    planned = build_child_pair_specs(20)
+    actual = Counter(call["pair_spec"]["category"] for call in model.calls)
+    expected = Counter(spec["category"] for spec in planned)
+    assert actual == expected
+    assert sum(actual.values()) == 20
+    for request in model.calls:
+        assert request["source_context"]
+        assert all(
+            source["verification_status"] == "provided_excerpt_not_semantically_verified"
+            for source in request["source_context"]
+        )
+
+
+def test_post_export_structural_failure_publishes_neither_word(tmp_path, monkeypatch):
+    """A verifier failure after 20 synthetic pairs cannot become a delivered paper."""
+    from src import child_exam_pipeline
+
+    def fail_structural_check(*args, **kwargs):
+        return {
+            "ok": False,
+            "files": {
+                "form_a": {"ok": True, "errors": []},
+                "form_b": {"ok": False, "errors": ["missing explanation"]},
+            },
+        }
+
+    monkeypatch.setattr(child_exam_pipeline, "verify_pair", fail_structural_check)
+    model = FakeModel()
+    with pytest.raises(ValueError, match="strict structural verification"):
+        generate_child_parallel_docx(model, _evidence(), tmp_path)
+    assert len(model.calls) == 20
+    assert not list(tmp_path.glob("*.docx"))
+    assert not list(tmp_path.glob(".child-docx-stage-*"))
+
+
+def test_second_publication_failure_removes_first_word(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    original = Path.replace
+
+    def block_second_file(self, target):
+        if self.name.startswith("form_b_"):
+            raise OSError("simulated second-file publication failure")
+        return original(self, target)
+
+    monkeypatch.setattr(Path, "replace", block_second_file)
+    with pytest.raises(OSError, match="second-file publication failure"):
+        generate_child_parallel_docx(
+            FakeModel(), _evidence(), tmp_path, items_per_form=2
+        )
+    assert not list(tmp_path.glob("*.docx"))
+    assert not list(tmp_path.glob(".child-docx-stage-*"))
+
+
+def test_same_version_cannot_overwrite_existing_delivered_paper(tmp_path):
+    first = generate_child_parallel_docx(
+        FakeModel(), _evidence(), tmp_path, items_per_form=1
+    )
+    previous = {key: path.read_bytes() for key, path in first.items()}
+    with pytest.raises(FileExistsError, match="Refusing to overwrite"):
+        generate_child_parallel_docx(
+            FakeModel(), _evidence(), tmp_path, items_per_form=1
+        )
+    assert len(list(tmp_path.glob("*.docx"))) == 2
+    assert all(first[key].read_bytes() == value for key, value in previous.items())
+    assert not list(tmp_path.glob(".child-docx-stage-*"))
