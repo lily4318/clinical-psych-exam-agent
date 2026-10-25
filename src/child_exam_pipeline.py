@@ -377,6 +377,10 @@ def main() -> None:
     )
     parser.add_argument("--model", default=None, help="Already-installed local model (or OLLAMA_MODEL)")
     parser.add_argument(
+        "--timeout-seconds", type=float, default=None,
+        help="Local Ollama inference timeout in seconds (1-600); default 180",
+    )
+    parser.add_argument(
         "--check-local-model", action="store_true",
         help="Only check that local Ollama and the named model are ready; no generation or source fetch",
     )
@@ -399,7 +403,12 @@ def main() -> None:
     ):
         parser.error("generation requires --evidence or --auto-evidence")
     # Fail before network source retrieval or 20 expensive local model calls.
-    model = OllamaLocalJsonCallback(model=args.model)
+    # Keep the existing constructor contract unchanged when no override is set.
+    # Slow CPU-only local inference can exceed the default 180 seconds per pair.
+    model_options = {"model": args.model}
+    if args.timeout_seconds is not None:
+        model_options["timeout_seconds"] = args.timeout_seconds
+    model = OllamaLocalJsonCallback(**model_options)
     model.check_ready()
     if args.check_local_model:
         print(f"Local Ollama model ready: {model.model} (no inference or download)")
