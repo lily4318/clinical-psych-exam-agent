@@ -1,0 +1,57 @@
+# One real zero-paid-API inference smoke; never a clinical quality test.
+# Standard GitHub-hosted runner is free only while this repository is public.
+# The path filter avoids downloading a model on ordinary PRs.
+name: real local Ollama JSON smoke
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/local_ollama_json_smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-json-probe:
+    # Do not allocate a runner if this repo becomes private. Fork PRs cannot
+    # trigger model downloads through this workflow.
+    if: ${{ github.event.repository.private == false && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install only existing Python dependencies
+        run: python -m pip install -e .
+      - name: Start CPU-only Ollama on loopback
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --rm --name clinical-exam-ollama -p 127.0.0.1:11434:11434 ollama/ollama:latest
+          for i in $(seq 1 40); do
+            if curl --silent --fail http://127.0.0.1:11434/api/tags >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl --silent --show-error --fail http://127.0.0.1:11434/api/tags >/dev/null
+          docker exec clinical-exam-ollama ollama --version
+      - name: Download free tiny model for transport probe only
+        run: docker exec clinical-exam-ollama ollama pull qwen2.5:0.5b
+      - name: Execute REAL local JSON inference (not a mock)
+        run: python -m src.child_exam_pipeline --probe-local-inference --model qwen2.5:0.5b --timeout-seconds 240
+      - name: Explain what this test does NOT prove
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Local model smoke scope'
+            echo 'Runs Ollama inside this standard public-repo GitHub runner, without a paid inference API.'
+            echo 'This checks a single real non-clinical JSON response only.'
+            echo 'It does NOT validate clinical sources, 20 paired items, Word delivery, or expert item quality.'
+            echo 'The downloaded 0.5B model is not recommended for clinical exam production.'
+            echo 'No model files or clinical prompts are uploaded as artifacts.'
+          } >> "$GITHUB_STEP_SUMMARY"
