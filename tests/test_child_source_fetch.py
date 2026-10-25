@@ -184,25 +184,41 @@ def test_cli_auto_evidence_wires_fetch_to_existing_generator(monkeypatch, tmp_pa
         called["generation"] = (evidence, output, items_per_form, version)
         return {"form_a": output / "a.docx", "form_b": output / "b.docx"}
     monkeypatch.setattr(pipeline, "fetch_official_guidance_evidence", fake_fetch)
-    monkeypatch.setattr(pipeline, "OllamaLocalJsonCallback", lambda model: object())
+    class ReadyModel:
+        def __init__(self, model):
+            self.model = model
+        def check_ready(self):
+            called["ready"] = self.model
+
+    monkeypatch.setattr(pipeline, "OllamaLocalJsonCallback", ReadyModel)
     monkeypatch.setattr(pipeline, "generate_child_parallel_docx", fake_generation)
     monkeypatch.setattr(sys, "argv", [
         "child-exam", "--auto-evidence", "--model", "local-model",
         "--items", "1", "--out", str(tmp_path),
     ])
     pipeline.main()
+    assert called["ready"] == "local-model"
     assert called["ids"] == {"NICE-NG87"}
     assert called["generation"][2] == 1
     assert called["generation"][0]["NICE-NG87"]["url"] == catalog["NICE-NG87"]["url"]
     assert "a.docx" in capsys.readouterr().out
 
 
-def test_auto_evidence_failure_aborts_before_model_load(monkeypatch, tmp_path):
+def test_auto_evidence_failure_aborts_before_generation_after_readiness(monkeypatch, tmp_path):
     def unavailable(*args):
         raise RuntimeError("offline")
     monkeypatch.setattr(pipeline, "fetch_official_guidance_evidence", unavailable)
-    monkeypatch.setattr(pipeline, "OllamaLocalJsonCallback",
-                        lambda model: pytest.fail("model must not be invoked"))
+    class ReadyModel:
+        def __init__(self, model):
+            self.model = model
+        def check_ready(self):
+            return self.model
+
+    monkeypatch.setattr(pipeline, "OllamaLocalJsonCallback", ReadyModel)
+    monkeypatch.setattr(
+        pipeline, "generate_child_parallel_docx",
+        lambda *args, **kwargs: pytest.fail("generation must not be invoked"),
+    )
     monkeypatch.setattr(sys, "argv", [
         "child-exam", "--auto-evidence", "--model", "local-model",
         "--items", "1", "--out", str(tmp_path),

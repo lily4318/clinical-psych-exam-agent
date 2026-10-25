@@ -104,6 +104,22 @@ clinical-psych-review-docx --out output/review-docx
 
 此指令從既有 review manifest 組卷並輸出兩份可閱讀 DOCX；它不會自行產生兒童領域新題，也不會把 review 草稿升為正式核可版。匯出器只負責既有 JSON → DOCX；兒童或其他新領域的 AI 命題尚須完成對應藍圖及生成服務整合。若執行環境不能實際建立檔案，不得宣稱已產生下載檔。
 
+### 兒童／青少年新題：本機零額外付費模型的快速檢查
+
+本機 CLI 可選用**使用者已安裝**的 Ollama 模型；GitHub Actions 的 pytest 不會替你下載模型，也無法連線到使用者電腦的 localhost。先檢查本機模型是否已安裝、服務是否啟動（只讀取本機模型清單，**不命題、不下載、不呼叫付費 API**）：
+
+```bash
+python -m src.child_exam_pipeline --check-local-model --model qwen2.5
+```
+
+模型名稱請換成自己已安裝的模型。若檢查失敗，程式會在讀取或抓取來源、執行20次配對命題之前停止；不會默默切換雲端模型。確認成功後才執行：
+
+```bash
+python -m src.child_exam_pipeline --auto-evidence --model qwen2.5 --items 20 --out output/child-docx
+```
+
+這條命令仍須本機有可用 Ollama、網路可存取官方臨床指引、且模型確實產出符合規範的題目；來源或命題不足時應拒絕交付。**本機預檢成功不代表完成真實 AI 命題、專家臨床驗證或 ChatGPT 首次雙 Word 下載。** ChatGPT 等其他平台可以直接使用自己的已授權工具製作 DOCX，**不需要安裝 Ollama**。
+
 ### 既有正式版
 
 正式核可後按 `agent/word_export_policy.md`，維持甲卷、乙卷、答案與解析三個 DOCX 的正式版本交付規範；未經核可不得改變正式版本。

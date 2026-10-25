@@ -11,10 +11,19 @@ import math
 import os
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.request import ProxyHandler, Request, build_opener
+from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 _LOCAL_CHAT_URL = "http://127.0.0.1:11434/api/chat"
+_LOCAL_TAGS_URL = "http://127.0.0.1:11434/api/tags"
 _MAX_RESPONSE_BYTES = 4 * 1024 * 1024
+_MAX_TAGS_BYTES = 1024 * 1024
+
+
+class _NoRedirect(HTTPRedirectHandler):
+    """A local readiness probe must never follow redirects to external hosts."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 class OllamaLocalJsonCallback:
@@ -44,6 +53,47 @@ class OllamaLocalJsonCallback:
             raise ValueError("timeout_seconds must be between 1 and 600.")
         self.model = selected.strip()
         self.timeout_seconds = float(timeout_seconds)
+
+    def check_ready(self) -> str:
+        """Confirm this exact model is already installed locally; never pull it.
+
+        This is an optional no-inference, no-paid-API preflight. Ollama's
+        /api/tags endpoint lists local models only; no model generation occurs.
+        """
+        request = Request(_LOCAL_TAGS_URL, method="GET")
+        opener = build_opener(ProxyHandler({}), _NoRedirect())
+        try:
+            with opener.open(request, timeout=min(self.timeout_seconds, 10.0)) as response:
+                raw = response.read(_MAX_TAGS_BYTES + 1)
+        except (HTTPError, URLError, TimeoutError, OSError) as exc:
+            raise RuntimeError(
+                "Local Ollama readiness check failed at 127.0.0.1:11434. "
+                "Start the local Ollama server; no cloud or paid fallback was used."
+            ) from exc
+        if not raw or len(raw) > _MAX_TAGS_BYTES:
+            raise RuntimeError("Local Ollama returned empty or oversized model metadata.")
+        try:
+            data = json.loads(raw)
+        except (ValueError, TypeError) as exc:
+            raise RuntimeError("Local Ollama returned invalid model metadata.") from exc
+        if not isinstance(data, dict) or not isinstance(data.get("models"), list):
+            raise RuntimeError("Local Ollama model list is malformed.")
+        installed = {
+            value.strip()
+            for row in data["models"]
+            if isinstance(row, dict)
+            for value in (row.get("name"), row.get("model"))
+            if isinstance(value, str) and value.strip()
+        }
+        requested = self.model
+        normalized = requested if ":" in requested else requested + ":latest"
+        if requested not in installed and normalized not in installed:
+            raise RuntimeError(
+                f"Local model {requested!r} is not installed. "
+                "Install a suitable model locally first; no download or paid "
+                "model API is invoked automatically."
+            )
+        return requested
 
     def __call__(self, request: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(request, dict):

@@ -343,7 +343,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate candidate child/adolescent parallel exams from local Ollama."
     )
-    evidence_group = parser.add_mutually_exclusive_group(required=True)
+    evidence_group = parser.add_mutually_exclusive_group(required=False)
     evidence_group.add_argument(
         "--evidence", type=Path,
         help="Existing reviewed JSON: source_id -> {url, passage, retrieved_at}",
@@ -353,10 +353,24 @@ def main() -> None:
         help="Fetch only the allowlisted official NICE guidance excerpts (internet required)",
     )
     parser.add_argument("--model", default=None, help="Already-installed local model (or OLLAMA_MODEL)")
+    parser.add_argument(
+        "--check-local-model", action="store_true",
+        help="Only check that local Ollama and the named model are ready; no generation or source fetch",
+    )
     parser.add_argument("--items", type=int, default=20, help="Number of items in EACH form")
     parser.add_argument("--version", default=DRAFT_VERSION)
     parser.add_argument("--out", type=Path, default=Path("output/child-docx"))
     args = parser.parse_args()
+    if args.check_local_model and (args.auto_evidence or args.evidence is not None):
+        parser.error("--check-local-model cannot be combined with evidence arguments")
+    if not args.check_local_model and not args.auto_evidence and args.evidence is None:
+        parser.error("generation requires --evidence or --auto-evidence")
+    # Fail before network source retrieval or 20 expensive local model calls.
+    model = OllamaLocalJsonCallback(model=args.model)
+    model.check_ready()
+    if args.check_local_model:
+        print(f"Local Ollama model ready: {model.model} (no inference or download)")
+        return
     if args.auto_evidence:
         blueprint = load_domain_blueprint()
         specs = build_child_pair_specs(args.items, blueprint=blueprint)
@@ -364,7 +378,6 @@ def main() -> None:
         evidence = fetch_official_guidance_evidence(blueprint["sources"], required_ids)
     else:
         evidence = json.loads(args.evidence.read_text(encoding="utf-8"))
-    model = OllamaLocalJsonCallback(model=args.model)
     result = generate_child_parallel_docx(
         model, evidence, args.out, items_per_form=args.items, version=args.version
     )
