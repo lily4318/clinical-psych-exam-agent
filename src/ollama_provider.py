@@ -33,7 +33,10 @@ class OllamaLocalJsonCallback:
     source validation, clinical review and Word export remain separate gates.
     """
 
-    def __init__(self, *, model: str | None = None, timeout_seconds: float = 180):
+    def __init__(
+        self, *, model: str | None = None, timeout_seconds: float = 180,
+        max_output_tokens: int | None = None,
+    ):
         selected = model if model is not None else os.getenv("OLLAMA_MODEL", "")
         if not isinstance(selected, str) or not selected.strip():
             raise RuntimeError(
@@ -51,8 +54,15 @@ class OllamaLocalJsonCallback:
             or not 1 <= timeout_seconds <= 600
         ):
             raise ValueError("timeout_seconds must be between 1 and 600.")
+        if max_output_tokens is not None and (
+            isinstance(max_output_tokens, bool)
+            or not isinstance(max_output_tokens, int)
+            or not 1 <= max_output_tokens <= 4096
+        ):
+            raise ValueError("max_output_tokens must be an integer between 1 and 4096.")
         self.model = selected.strip()
         self.timeout_seconds = float(timeout_seconds)
+        self.max_output_tokens = max_output_tokens
 
     def check_ready(self) -> str:
         """Confirm this exact model is already installed locally; never pull it.
@@ -102,11 +112,14 @@ class OllamaLocalJsonCallback:
         if not isinstance(system, str) or not system.strip():
             raise ValueError("Generation request requires system_instruction.")
 
+        options = {"temperature": 0}
+        if self.max_output_tokens is not None:
+            options["num_predict"] = self.max_output_tokens
         payload = {
             "model": self.model,
             "stream": False,
             "format": "json",
-            "options": {"temperature": 0},
+            "options": options,
             "messages": [
                 {"role": "system", "content": system},
                 {
