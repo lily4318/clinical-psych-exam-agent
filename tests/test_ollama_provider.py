@@ -134,6 +134,25 @@ def test_connection_failure_is_explicit_and_never_switches_to_paid_api(monkeypat
         OllamaLocalJsonCallback(model="local-test")({"system_instruction": "rules"})
 
 
+@pytest.mark.parametrize("failure", [
+    TimeoutError("local inference timed out"),
+    URLError(TimeoutError("local inference timed out")),
+])
+def test_slow_local_inference_timeout_is_not_misreported_as_connection_failure(
+    monkeypatch, failure
+):
+    opener = _Opener(b"", exc=failure)
+    monkeypatch.setattr(ollama_provider, "build_opener", lambda *a: opener)
+    with pytest.raises(RuntimeError, match="inference timed out after 12 seconds") as error:
+        OllamaLocalJsonCallback(
+            model="already-installed-local-model", timeout_seconds=12
+        )({"system_instruction": "local-only JSON probe"})
+    assert "Cannot reach" not in str(error.value)
+    assert "maximum 600" in str(error.value)
+    assert len(opener.calls) == 1
+    assert opener.calls[0][0].full_url == "http://127.0.0.1:11434/api/chat"
+
+
 def test_unknown_local_model_reports_http_error(monkeypatch):
     error = HTTPError("http://127.0.0.1:11434/api/chat", 404, "Not Found", {}, None)
     opener = _Opener(b"", exc=error)

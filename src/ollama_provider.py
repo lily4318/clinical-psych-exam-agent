@@ -140,6 +140,18 @@ class OllamaLocalJsonCallback:
                 f"model {self.model!r} is already downloaded and loaded locally."
             ) from exc
         except (URLError, TimeoutError, OSError) as exc:
+            # urllib may wrap a socket timeout inside URLError.  A slow local
+            # inference is not the same failure as an unreachable server.
+            if isinstance(exc, TimeoutError) or (
+                isinstance(exc, URLError)
+                and isinstance(exc.reason, TimeoutError)
+            ):
+                raise RuntimeError(
+                    f"Local Ollama inference timed out after {self.timeout_seconds:g} "
+                    "seconds. Increase --timeout-seconds (maximum 600), or use "
+                    "a faster already-installed local model. No paid fallback "
+                    "was attempted."
+                ) from exc
             raise RuntimeError(
                 "Cannot reach the local Ollama server at 127.0.0.1:11434. "
                 "Install/start Ollama and a locally downloaded model first. "
