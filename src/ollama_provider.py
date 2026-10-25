@@ -127,8 +127,10 @@ class OllamaLocalJsonCallback:
             method="POST",
         )
 
-        # Disable all proxy forwarding. Fixed loopback URL is not user-supplied.
-        opener = build_opener(ProxyHandler({}))
+        # Reject redirects during inference as well as readiness checks.
+        # Otherwise a local HTTP redirect could forward the clinical prompt
+        # to an external service despite the fixed loopback request URL.
+        opener = build_opener(ProxyHandler({}), _NoRedirect())
         try:
             with opener.open(http_request, timeout=self.timeout_seconds) as response:
                 raw = response.read(_MAX_RESPONSE_BYTES + 1)
