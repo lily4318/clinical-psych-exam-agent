@@ -342,6 +342,26 @@ def generate_child_parallel_docx(
     )
 
 
+def _probe_local_inference(model: OllamaLocalJsonCallback) -> None:
+    """Exercise one real local JSON inference, without clinical text or sources.
+
+    Passing this small transport probe does NOT demonstrate clinical accuracy,
+    20-pair capacity, source grounding or Word delivery.
+    """
+    response = model({
+        "system_instruction": (
+            "This is a local-only JSON transport probe, not a clinical exam. "
+            'Return only a JSON object with the exact field "probe": "ok".'
+        ),
+        "task": 'Return the JSON object {"probe": "ok"}.',
+    })
+    if not isinstance(response, dict) or response.get("probe") != "ok":
+        raise RuntimeError(
+            "Local Ollama responded but failed the minimal JSON inference probe. "
+            "No clinical questions or Word files were generated."
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate candidate child/adolescent parallel exams from local Ollama."
@@ -360,19 +380,36 @@ def main() -> None:
         "--check-local-model", action="store_true",
         help="Only check that local Ollama and the named model are ready; no generation or source fetch",
     )
+    parser.add_argument(
+        "--probe-local-inference", action="store_true",
+        help="Run one minimal real local JSON inference; no clinical content or source fetch",
+    )
     parser.add_argument("--items", type=int, default=20, help="Number of items in EACH form")
     parser.add_argument("--version", default=DRAFT_VERSION)
     parser.add_argument("--out", type=Path, default=Path("output/child-docx"))
     args = parser.parse_args()
-    if args.check_local_model and (args.auto_evidence or args.evidence is not None):
-        parser.error("--check-local-model cannot be combined with evidence arguments")
-    if not args.check_local_model and not args.auto_evidence and args.evidence is None:
+    if args.check_local_model and args.probe_local_inference:
+        parser.error("Choose only one local model diagnostic mode")
+    if (args.check_local_model or args.probe_local_inference) and (
+        args.auto_evidence or args.evidence is not None
+    ):
+        parser.error("Local model diagnostics cannot be combined with evidence arguments")
+    if not (args.check_local_model or args.probe_local_inference) and (
+        not args.auto_evidence and args.evidence is None
+    ):
         parser.error("generation requires --evidence or --auto-evidence")
     # Fail before network source retrieval or 20 expensive local model calls.
     model = OllamaLocalJsonCallback(model=args.model)
     model.check_ready()
     if args.check_local_model:
         print(f"Local Ollama model ready: {model.model} (no inference or download)")
+        return
+    if args.probe_local_inference:
+        _probe_local_inference(model)
+        print(
+            f"Local Ollama JSON inference probe passed: {model.model} "
+            "(one real local inference; no exam or Word generated)"
+        )
         return
     if args.auto_evidence:
         blueprint = load_domain_blueprint()
