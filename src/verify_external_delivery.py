@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,11 @@ SOURCE_MAPPING = re.compile(r"^第\s*(\d+)\s*題\s*[：:]\s*(\S.*)$")
 ANSWER_HEADING = re.compile(r"^[甲乙]卷\s*[｜|]\s*答案與解析")
 OPTION_RATIONALE = re.compile(r"^\s*([ABCD])(?:\s*選項)?\s*[：:]\s*(.*)$", re.I)
 READER_SECTIONS = ("命題範圍與依據", "答案一覽", "逐題解析", "來源對照與參考資料")
+
+
+def normalize_question_stem(stem: str) -> str:
+    """Normalize only exact-text variants; not a semantic similarity judgement."""
+    return re.sub(r"\s+", "", unicodedata.normalize("NFKC", stem)).casefold()
 
 
 def _parse_answers(doc: Any, after: list[str], expected_count: int) -> tuple[dict[int, str], list[str]]:
@@ -255,10 +261,22 @@ def verify_pair(form_a: str | Path, form_b: str | Path, item_count: int) -> dict
         b["errors"].append("甲乙卷不可使用同一檔案")
     if a["version"] and b["version"] and a["version"] != b["version"]:
         b["errors"].append("甲乙版本不同")
-    if a.get("stems") and b.get("stems"):
-        for number, (stem_a, stem_b) in enumerate(zip(a["stems"], b["stems"]), start=1):
-            if stem_a == stem_b:
-                b["errors"].append(f"第 {number} 題甲乙題幹完全相同")
+    # Check ALL question positions across both forms, not only aligned A/B pairs.
+    # This detects copy-pasted items in the same form and cross-form reuse.
+    seen_stems: dict[str, tuple[str, int]] = {}
+    for result, label in ((a, "甲卷"), (b, "乙卷")):
+        for number, stem in enumerate(result.get("stems", []), start=1):
+            normalized = normalize_question_stem(stem)
+            if not normalized:
+                continue
+            if normalized in seen_stems:
+                previous_form, previous_number = seen_stems[normalized]
+                result["errors"].append(
+                    f"{label}第 {number} 題與{previous_form}第 {previous_number} 題"
+                    "題幹重複（忽略空白及全半形差異）"
+                )
+            else:
+                seen_stems[normalized] = (label, number)
     for doc in (a, b):
         doc.pop("stems", None)
         doc["ok"] = not doc["errors"]
