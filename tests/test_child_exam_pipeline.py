@@ -334,7 +334,7 @@ def test_competing_publisher_cannot_be_overwritten(tmp_path, monkeypatch, blocke
 
     def race_at_link(source, target):
         destination = Path(target)
-        if destination.name.startswith(f"form_{blocked_form}_"):
+        if destination.parent == tmp_path and destination.name.startswith(f"form_{blocked_form}_"):
             destination.write_bytes(b"another publisher's document")
             injected.append(destination)
             raise FileExistsError("simulated competing publisher")
