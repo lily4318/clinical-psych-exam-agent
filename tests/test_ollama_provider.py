@@ -74,8 +74,9 @@ def test_local_callback_uses_fixed_loopback_and_structured_json(monkeypatch):
     assert sent["options"]["temperature"] == 0
     assert sent["messages"][0]["role"] == "system"
     assert "測試" in sent["messages"][1]["content"]
-    assert len(handlers) == 1
+    assert len(handlers) == 2
     assert handlers[0].proxies == {}
+    assert isinstance(handlers[1], ollama_provider._NoRedirect)
 
 
 def test_model_can_be_configured_by_environment(monkeypatch):
@@ -184,3 +185,45 @@ def test_readiness_offline_fails_without_cloud_fallback(monkeypatch):
         OllamaLocalJsonCallback(model="qwen2.5").check_ready()
     assert len(opener.calls) == 1
     assert opener.calls[0][0].full_url.startswith("http://127.0.0.1:11434/")
+
+
+def test_inference_redirect_handler_refuses_external_destination(monkeypatch):
+    """Inference must use the same no-redirect protection as model preflight."""
+    from urllib.request import Request
+
+    _opener, handlers = _inject(monkeypatch, _envelope('{"ok": true}'))
+    callback = OllamaLocalJsonCallback(model="local-test")
+    assert callback({"system_instruction": "rules"}) == {"ok": True}
+    redirect_guard = handlers[1]
+    original = Request(
+        "http://127.0.0.1:11434/api/chat",
+        data=b'{"model":"local-test"}',
+        method="POST",
+    )
+    assert redirect_guard.redirect_request(
+        original, None, 302, "Found", {},
+        "https://example.org/external-inference",
+    ) is None
+
+
+def test_inference_redirect_http_error_stops_without_fallback(monkeypatch):
+    """A redirect response is a failure, never permission to use a cloud API."""
+    error = HTTPError(
+        "http://127.0.0.1:11434/api/chat", 302, "Found",
+        {"Location": "https://example.org/external-inference"}, None,
+    )
+    opener = _Opener(b"", exc=error)
+    captured = []
+
+    def fake_build_opener(*handlers):
+        captured.extend(handlers)
+        return opener
+
+    monkeypatch.setattr(ollama_provider, "build_opener", fake_build_opener)
+    with pytest.raises(RuntimeError, match="HTTP 302"):
+        OllamaLocalJsonCallback(model="local-test")(
+            {"system_instruction": "rules"}
+        )
+    assert len(opener.calls) == 1
+    assert opener.calls[0][0].full_url == "http://127.0.0.1:11434/api/chat"
+    assert isinstance(captured[1], ollama_provider._NoRedirect)
