@@ -145,3 +145,42 @@ def test_missing_system_instruction_fails_before_transport(monkeypatch):
     _inject(monkeypatch, _envelope('{"ok": true}'))
     with pytest.raises(ValueError, match="system_instruction"):
         OllamaLocalJsonCallback(model="local-test")({"task": "missing rules"})
+
+
+def test_readiness_accepts_installed_local_model_without_generation(monkeypatch):
+    body = json.dumps({"models": [{"name": "qwen2.5:latest"}]}).encode()
+    opener, handlers = _inject(monkeypatch, body)
+    callback = OllamaLocalJsonCallback(model="qwen2.5")
+    assert callback.check_ready() == "qwen2.5"
+    assert len(opener.calls) == 1
+    request, timeout = opener.calls[0]
+    assert request.full_url == "http://127.0.0.1:11434/api/tags"
+    assert request.get_method() == "GET"
+    assert timeout == 10
+    assert handlers[0].proxies == {}
+    assert isinstance(handlers[1], ollama_provider._NoRedirect)
+
+
+def test_readiness_rejects_uninstalled_model_without_download(monkeypatch):
+    body = json.dumps({"models": [{"name": "other-model:latest"}]}).encode()
+    opener, _ = _inject(monkeypatch, body)
+    with pytest.raises(RuntimeError, match="not installed"):
+        OllamaLocalJsonCallback(model="qwen2.5").check_ready()
+    assert len(opener.calls) == 1
+    assert opener.calls[0][0].get_method() == "GET"
+
+
+@pytest.mark.parametrize("body", [b"", b"not-json", b"[]", b'{"models": {}}'])
+def test_readiness_rejects_invalid_local_metadata(monkeypatch, body):
+    _inject(monkeypatch, body)
+    with pytest.raises(RuntimeError, match="metadata|model list"):
+        OllamaLocalJsonCallback(model="qwen2.5").check_ready()
+
+
+def test_readiness_offline_fails_without_cloud_fallback(monkeypatch):
+    opener = _Opener(b"", exc=URLError("local daemon not started"))
+    monkeypatch.setattr(ollama_provider, "build_opener", lambda *args: opener)
+    with pytest.raises(RuntimeError, match="readiness check failed"):
+        OllamaLocalJsonCallback(model="qwen2.5").check_ready()
+    assert len(opener.calls) == 1
+    assert opener.calls[0][0].full_url.startswith("http://127.0.0.1:11434/")
