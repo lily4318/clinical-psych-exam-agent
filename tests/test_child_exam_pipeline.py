@@ -310,7 +310,7 @@ def test_second_publication_failure_removes_first_word(tmp_path, monkeypatch):
     original = child_exam_pipeline.os.link
 
     def block_second_file(source, target):
-        if Path(target).name.startswith("form_b_"):
+        if Path(target).parent == tmp_path and Path(target).name.startswith("form_b_"):
             raise OSError("simulated second-file publication failure")
         return original(source, target)
 
