@@ -116,19 +116,45 @@ def _request(spec: dict[str, Any], evidence: list[dict[str, str]], number: int) 
             "兩題皆須附逐項 A-D 解析與具體正解依據。",
             "sources 只能列出本次 source_context 的 source_id。",
             "來源摘錄不足時停止；不可以虛構、猜測或引用純網址當作證據。",
+            "僅生成題幹、四選項、正確答案、正解及A-D逐項解析、引用來源ID。",
+            "題號、卷別、配對ID、領域、難度、認知層次及草稿標示由程式填入，不要重複輸出。",
             "原始摘錄存在不代表臨床主張已通過專家驗證。",
             "所有新題均為草稿，絕不可標成正式核可。",
         ],
         "output_contract": {
             "type": "object",
-            "required": ["pair_id", "form_a", "form_b"],
-            "item_fields": [
-                "item_id", "form", "pair_id", "stem", "options", "correct_answer",
-                "category", "subtopic", "difficulty", "cognitive_level",
-                "rationale", "sources", "quality_status",
+            "required": ["form_a", "form_b"],
+            "item_fields": ["stem", "options", "correct_answer", "rationale", "sources"],
+            "rationale_fields": ["correct", "A", "B", "C", "D"],
+            "omit_deterministic_metadata": [
+                "item_id", "form", "pair_id", "category", "subtopic",
+                "difficulty", "cognitive_level", "quality_status",
             ],
         },
     }
+
+
+def _with_planned_metadata(
+    item: Any, spec: dict[str, Any], expected: dict[str, str],
+) -> Any:
+    """Fill only omitted deterministic fields; never overwrite a conflicting claim.
+
+    The normal downstream validator still rejects mismatched metadata, unsafe
+    approval claims, incomplete explanations and unsupported source IDs.
+    """
+    if not isinstance(item, dict):
+        return item
+    planned = {
+        "item_id": expected["item_id"],
+        "form": expected["form"],
+        "pair_id": spec["pair_id"],
+        "category": spec["category"],
+        "subtopic": spec["core_topic"],
+        "difficulty": spec["difficulty"],
+        "cognitive_level": spec["cognitive_level"],
+        "quality_status": "草稿",
+    }
+    return {**planned, **item}
 
 
 def _check_item(
@@ -302,11 +328,12 @@ def generate_child_parallel_docx(
         if not isinstance(result, dict) or result.get("source_insufficient"):
             raise ValueError(f"{spec['pair_id']}: model could not supply a valid pair.")
 
-        if result.get("pair_id") != spec["pair_id"]:
+        if result.get("pair_id", spec["pair_id"]) != spec["pair_id"]:
             raise ValueError(f"{spec['pair_id']}: model pair_id mismatch.")
 
         allowed = {source["source_id"] for source in request["source_context"]}
-        first, second = result.get("form_a"), result.get("form_b")
+        first = _with_planned_metadata(result.get("form_a"), spec, request["forms"][0])
+        second = _with_planned_metadata(result.get("form_b"), spec, request["forms"][1])
         errors = []
         for label, item, expected in (
             ("甲卷", first, request["forms"][0]),
