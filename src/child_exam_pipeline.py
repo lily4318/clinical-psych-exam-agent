@@ -277,6 +277,10 @@ def generate_child_parallel_docx(
     # already has an output file. Match export_docx's filename slugging.
     # The final os.link publication still protects against a later race.
     output_root = Path(out_dir)
+    if os.path.lexists(output_root) and not output_root.is_dir():
+        raise NotADirectoryError(
+            f"Exam Word output directory is not a directory: {output_root}"
+        )
     slug = _safe_slug(version)
     for form in ("form_a", "form_b"):
         destination = output_root / f"{form}_{slug}.docx"
