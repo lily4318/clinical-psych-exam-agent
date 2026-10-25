@@ -95,3 +95,92 @@ def test_available_local_model_preserves_existing_evidence_generation(monkeypatc
     assert _ReadyLocalModel.calls == [("init", "test-local"), ("ready", "test-local")]
     assert captured["items"] == 3
     assert captured["evidence"] == {"source": {"passage": "provided"}}
+
+
+def test_local_json_probe_runs_one_real_inference_without_clinical_sources(monkeypatch, capsys):
+    """Only the transport is exercised; no generated item is treated as valid."""
+    class _Probe(_ReadyLocalModel):
+        def __call__(self, request):
+            self.calls.append(("inference", request))
+            return {"probe": "ok"}
+
+    _ReadyLocalModel.calls = []
+    monkeypatch.setattr(child_exam_pipeline, "OllamaLocalJsonCallback", _Probe)
+    monkeypatch.setattr(
+        child_exam_pipeline, "fetch_official_guidance_evidence",
+        lambda *args, **kwargs: pytest.fail("probe must not fetch clinical sources"),
+    )
+    monkeypatch.setattr(
+        child_exam_pipeline, "generate_child_parallel_docx",
+        lambda *args, **kwargs: pytest.fail("probe must not create Word files"),
+    )
+    monkeypatch.setattr(
+        sys, "argv", ["exam", "--probe-local-inference", "--model", "test-local"]
+    )
+    child_exam_pipeline.main()
+    assert [call[0] for call in _ReadyLocalModel.calls] == ["init", "ready", "inference"]
+    request = _ReadyLocalModel.calls[2][1]
+    assert request["task"] == 'Return the JSON object {"probe": "ok"}.'
+    assert "clinical exam" in request["system_instruction"]
+    assert "inference probe passed" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("response", [
+    {"probe": "wrong"}, {"other": "ok"}, [], None,
+])
+def test_local_json_probe_rejects_noncompliant_response_without_export(
+    monkeypatch, response
+):
+    class _Noncompliant(_ReadyLocalModel):
+        def __call__(self, request):
+            return response
+
+    monkeypatch.setattr(child_exam_pipeline, "OllamaLocalJsonCallback", _Noncompliant)
+    monkeypatch.setattr(
+        child_exam_pipeline, "generate_child_parallel_docx",
+        lambda *args, **kwargs: pytest.fail("probe must not export"),
+    )
+    monkeypatch.setattr(sys, "argv", ["exam", "--probe-local-inference"])
+    with pytest.raises(RuntimeError, match="failed the minimal JSON inference probe"):
+        child_exam_pipeline.main()
+
+
+def test_local_json_probe_propagates_inference_failure_without_fallback(monkeypatch):
+    class _FailedInference(_ReadyLocalModel):
+        def __call__(self, request):
+            raise RuntimeError("local inference unavailable")
+
+    monkeypatch.setattr(child_exam_pipeline, "OllamaLocalJsonCallback", _FailedInference)
+    monkeypatch.setattr(
+        child_exam_pipeline, "fetch_official_guidance_evidence",
+        lambda *args, **kwargs: pytest.fail("no fallback to source fetch"),
+    )
+    monkeypatch.setattr(sys, "argv", ["exam", "--probe-local-inference"])
+    with pytest.raises(RuntimeError, match="local inference unavailable"):
+        child_exam_pipeline.main()
+
+
+@pytest.mark.parametrize("args", [
+    ["--probe-local-inference", "--auto-evidence"],
+    ["--probe-local-inference", "--evidence", "unused.json"],
+    ["--probe-local-inference", "--check-local-model"],
+])
+def test_local_json_probe_disallows_generation_or_second_diagnostic(monkeypatch, args):
+    monkeypatch.setattr(sys, "argv", ["exam", *args])
+    with pytest.raises(SystemExit) as exc:
+        child_exam_pipeline.main()
+    assert exc.value.code == 2
+
+
+def test_local_json_probe_never_infers_when_model_not_installed(monkeypatch):
+    class _Unavailable(_ReadyLocalModel):
+        def check_ready(self):
+            raise RuntimeError("local model is not installed")
+
+        def __call__(self, request):
+            pytest.fail("must not infer when model is unavailable")
+
+    monkeypatch.setattr(child_exam_pipeline, "OllamaLocalJsonCallback", _Unavailable)
+    monkeypatch.setattr(sys, "argv", ["exam", "--probe-local-inference"])
+    with pytest.raises(RuntimeError, match="not installed"):
+        child_exam_pipeline.main()
