@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -236,8 +237,10 @@ def _export_verified_child_pair(
         try:
             for key in ("form_a", "form_b"):
                 dest = destinations[key]
-                # The staging directory shares its filesystem with target.
-                staged[key].replace(dest)
+                # Exclusive hard-link creation prevents a race after exists().
+                # Staging is inside target, so both paths share a filesystem.
+                # Unsupported hard links fail closed; never silently overwrite.
+                os.link(staged[key], dest)
                 committed.append(dest)
         except Exception:
             # A one-sided output must not be presented as a completed pair.
