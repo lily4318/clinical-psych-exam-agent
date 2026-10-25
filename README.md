@@ -118,6 +118,14 @@ python -m src.child_exam_pipeline --check-local-model --model qwen2.5
 python -m src.child_exam_pipeline --auto-evidence --model qwen2.5 --items 20 --out output/child-docx
 ```
 
+CPU 推論較慢時，可將單次 Ollama 請求的預設 **180 秒**逾時延長，範圍 **1–600 秒**，例如：
+
+```bash
+python -m src.child_exam_pipeline --auto-evidence --model qwen2.5 --items 20 --timeout-seconds 600 --out output/child-docx
+```
+
+`--timeout-seconds` 只調整本機 Ollama 的等待時間，不會下載模型、改用雲端、重試失敗題目或保證40題成功。先用 `--probe-local-inference --model qwen2.5 --timeout-seconds 600` 驗證基本 JSON 推論；此診斷仍不是臨床命題驗證。
+
 這條命令仍須本機有可用 Ollama、網路可存取官方臨床指引、且模型確實產出符合規範的題目；來源或命題不足時應拒絕交付。**本機預檢成功不代表完成真實 AI 命題、專家臨床驗證或 ChatGPT 首次雙 Word 下載。** ChatGPT 等其他平台可以直接使用自己的已授權工具製作 DOCX，**不需要安裝 Ollama**。
 
 ### 既有正式版
