@@ -104,6 +104,27 @@ def test_invalid_timeout_is_rejected(timeout):
         OllamaLocalJsonCallback(model="local-test", timeout_seconds=timeout)
 
 
+@pytest.mark.parametrize("bad_limit", [0, -1, 4097, True, 1.5, "2048"])
+def test_invalid_max_output_tokens_fails_before_transport(bad_limit):
+    with pytest.raises(ValueError, match="max_output_tokens"):
+        OllamaLocalJsonCallback(model="local-test", max_output_tokens=bad_limit)
+
+
+def test_optional_output_limit_is_sent_only_when_configured(monkeypatch):
+    opener, _ = _inject(monkeypatch, _envelope('{"ok": true}'))
+    limited = OllamaLocalJsonCallback(model="local-test", max_output_tokens=3072)
+    assert limited({"system_instruction": "rules"}) == {"ok": True}
+    bounded_request = json.loads(opener.calls[0][0].data)
+    assert bounded_request["options"]["num_predict"] == 3072
+    assert bounded_request["options"]["temperature"] == 0
+    assert bounded_request["stream"] is False
+
+    default = OllamaLocalJsonCallback(model="local-test")
+    assert default({"system_instruction": "rules"}) == {"ok": True}
+    default_request = json.loads(opener.calls[1][0].data)
+    assert "num_predict" not in default_request["options"]
+
+
 def test_source_insufficient_is_not_accepted_as_generated_content(monkeypatch):
     _inject(monkeypatch, _envelope('{"source_insufficient": true}'))
     callback = OllamaLocalJsonCallback(model="local-test")
