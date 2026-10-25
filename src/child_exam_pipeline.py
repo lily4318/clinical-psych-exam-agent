@@ -397,6 +397,10 @@ def main() -> None:
         help="Local Ollama inference timeout in seconds (1-600); default 180",
     )
     parser.add_argument(
+        "--max-output-tokens", type=int, default=None,
+        help="Optional local model output limit (1-4096 tokens); truncated JSON fails closed",
+    )
+    parser.add_argument(
         "--check-local-model", action="store_true",
         help="Only check that local Ollama and the named model are ready; no generation or source fetch",
     )
@@ -424,6 +428,8 @@ def main() -> None:
     model_options = {"model": args.model}
     if args.timeout_seconds is not None:
         model_options["timeout_seconds"] = args.timeout_seconds
+    if args.max_output_tokens is not None:
+        model_options["max_output_tokens"] = args.max_output_tokens
     model = OllamaLocalJsonCallback(**model_options)
     model.check_ready()
     if args.check_local_model:
