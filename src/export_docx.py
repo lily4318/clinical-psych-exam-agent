@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 from collections import Counter
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
 from docx import Document
@@ -249,10 +251,36 @@ def export_parallel_docx(
             raise ValueError(f"Duplicate pair ID at item {number}: {pair_a}.")
         seen_pair_ids.add(pair_a)
 
-    return {
-        "form_a": export_exam_docx(form_a, out_dir, include_answers=include_answers),
-        "form_b": export_exam_docx(form_b, out_dir, include_answers=include_answers),
-    }
+    # The public JSON-to-DOCX CLI must not leave only one Word if the second
+    # export fails, nor silently replace a previously delivered exam. Stage
+    # both files on the same filesystem, then publish each with an exclusive
+    # hard link (os.link fails if the destination already exists).
+    destination = Path(out_dir)
+    destination.mkdir(parents=True, exist_ok=True)
+    with TemporaryDirectory(prefix=".parallel-docx-stage-", dir=destination) as temp:
+        staged = {
+            "form_a": export_exam_docx(form_a, temp, include_answers=include_answers),
+            "form_b": export_exam_docx(form_b, temp, include_answers=include_answers),
+        }
+        final = {key: destination / path.name for key, path in staged.items()}
+        if final["form_a"] == final["form_b"]:
+            raise ValueError("Parallel Word output filenames must be distinct.")
+        for path in final.values():
+            if path.exists():
+                raise FileExistsError(f"Refusing to overwrite an existing Word: {path}")
+
+        published: list[Path] = []
+        try:
+            for key in ("form_a", "form_b"):
+                # Exclusive creation avoids a race between exists() and replace().
+                # Hard-linking staged bytes is atomic on the same filesystem.
+                os.link(staged[key], final[key])
+                published.append(final[key])
+        except Exception:
+            for path in published:
+                path.unlink(missing_ok=True)
+            raise
+        return final
 
 
 def main() -> None:
