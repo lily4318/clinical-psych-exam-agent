@@ -140,6 +140,47 @@ def test_non_object_or_invalid_generated_json_is_rejected(monkeypatch, content):
         callback({"system_instruction": "rules"})
 
 
+def test_truncated_output_reports_safe_token_counts_without_clinical_text(monkeypatch):
+    private_text = "CONFIDENTIAL_CLINICAL_RESPONSE"
+    body = json.dumps({
+        "message": {"role": "assistant", "content": private_text},
+        "done": True, "done_reason": "length",
+        "eval_count": 3072, "prompt_eval_count": 1050,
+    }).encode("utf-8")
+    _inject(monkeypatch, body)
+    callback = OllamaLocalJsonCallback(model="local-test", max_output_tokens=3072)
+    with pytest.raises(RuntimeError, match="output truncated") as error:
+        callback({"system_instruction": "rules"})
+    message = str(error.value)
+    assert "done_reason=length" in message
+    assert "eval_count=3072" in message
+    assert "prompt_eval_count=1050" in message
+    assert "max_output_tokens=3072" in message
+    assert private_text not in message
+
+
+def test_truncated_output_does_not_trust_unvalidated_usage_fields(monkeypatch):
+    body = json.dumps({
+        "message": {"content": "PRIVATE"},
+        "done": True, "done_reason": "length",
+        "eval_count": "SENSITIVE_TEXT", "prompt_eval_count": -5,
+    }).encode("utf-8")
+    _inject(monkeypatch, body)
+    with pytest.raises(RuntimeError, match="incomplete") as error:
+        OllamaLocalJsonCallback(model="local-test")({"system_instruction": "rules"})
+    assert "eval_count=unknown" in str(error.value)
+    assert "prompt_eval_count=unknown" in str(error.value)
+    assert "max_output_tokens=unset" in str(error.value)
+    assert "SENSITIVE_TEXT" not in str(error.value)
+
+
+def test_completed_but_malformed_json_is_not_reported_as_token_truncation(monkeypatch):
+    _inject(monkeypatch, _envelope('{"pair_id":'))
+    with pytest.raises(RuntimeError, match="completed inference but generated malformed JSON") as error:
+        OllamaLocalJsonCallback(model="local-test")({"system_instruction": "rules"})
+    assert "output truncated" not in str(error.value)
+
+
 @pytest.mark.parametrize("done,reason", [(False, "stop"), (True, "length")])
 def test_incomplete_reply_is_rejected(monkeypatch, done, reason):
     _inject(monkeypatch, _envelope('{"ok": true}', done=done, reason=reason))
