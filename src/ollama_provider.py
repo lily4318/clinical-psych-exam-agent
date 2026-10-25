@@ -175,17 +175,45 @@ class OllamaLocalJsonCallback:
             raise RuntimeError("Local Ollama returned an empty or oversized response.")
         try:
             envelope = json.loads(raw)
-            if not isinstance(envelope, dict):
-                raise ValueError("response envelope is not a JSON object")
-            if envelope.get("done") is not True or envelope.get("done_reason") == "length":
-                raise ValueError("incomplete response")
-            message = envelope.get("message")
-            if not isinstance(message, dict) or not isinstance(message.get("content"), str):
-                raise ValueError("missing assistant message content")
+        except (json.JSONDecodeError, TypeError, ValueError) as exc:
+            raise RuntimeError(
+                "Local Ollama returned malformed response envelope JSON. "
+                "Do not export or approve the resulting questions."
+            ) from exc
+        if not isinstance(envelope, dict):
+            raise RuntimeError("Local Ollama response envelope is not a JSON object.")
+
+        # Distinguish output-cap exhaustion from malformed model JSON. Report
+        # only safe numeric usage metadata, never clinical prompt/response text.
+        if envelope.get("done_reason") == "length":
+            def count(name: str) -> str:
+                value = envelope.get(name)
+                return str(value) if type(value) is int and value >= 0 else "unknown"
+
+            cap = self.max_output_tokens if self.max_output_tokens is not None else "unset"
+            raise RuntimeError(
+                "Local Ollama returned incomplete JSON: output truncated "
+                f"(done_reason=length, eval_count={count('eval_count')}, "
+                f"prompt_eval_count={count('prompt_eval_count')}, "
+                f"max_output_tokens={cap}). "
+                "Do not export or approve the resulting questions."
+            )
+        if envelope.get("done") is not True:
+            raise RuntimeError(
+                "Local Ollama returned an incomplete response (done was not true). "
+                "Do not export or approve the resulting questions."
+            )
+        message = envelope.get("message")
+        if not isinstance(message, dict) or not isinstance(message.get("content"), str):
+            raise RuntimeError(
+                "Local Ollama response is missing assistant message content. "
+                "Do not export or approve the resulting questions."
+            )
+        try:
             result = json.loads(message["content"])
         except (json.JSONDecodeError, TypeError, ValueError) as exc:
             raise RuntimeError(
-                "Local Ollama returned malformed or incomplete structured JSON. "
+                "Local Ollama completed inference but generated malformed JSON. "
                 "Do not export or approve the resulting questions."
             ) from exc
 
