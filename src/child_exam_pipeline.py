@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -17,7 +16,7 @@ from typing import Any
 
 from .domain_blueprints import build_child_pair_specs, load_domain_blueprint
 from .export_docx import export_parallel_docx
-from .verify_external_delivery import verify_pair
+from .verify_external_delivery import normalize_question_stem, verify_pair
 from .ollama_provider import OllamaLocalJsonCallback
 from .child_source_fetch import fetch_official_guidance_evidence
 
@@ -277,6 +276,7 @@ def generate_child_parallel_docx(
 
     a_items: list[dict] = []
     b_items: list[dict] = []
+    seen_stems: dict[str, tuple[str, str]] = {}
     for number, spec in enumerate(specs, start=1):
         request = _request(spec, contexts[spec["pair_id"]], number)
         result = callback(request)
@@ -299,10 +299,21 @@ def generate_child_parallel_docx(
         if errors:
             raise ValueError(f"{spec['pair_id']}: " + "; ".join(errors))
 
-        normalized_a = re.sub(r"\s+", "", first["stem"]).casefold()
-        normalized_b = re.sub(r"\s+", "", second["stem"]).casefold()
+        normalized_a = normalize_question_stem(first["stem"])
+        normalized_b = normalize_question_stem(second["stem"])
         if normalized_a == normalized_b:
             raise ValueError(f"{spec['pair_id']}: parallel question stems are identical.")
+        for label, item, normalized in (
+            ("甲卷", first, normalized_a),
+            ("乙卷", second, normalized_b),
+        ):
+            if normalized in seen_stems:
+                previous_form, previous_pair = seen_stems[normalized]
+                raise ValueError(
+                    f"{spec['pair_id']}: duplicate question stem in {label}; "
+                    f"already used by {previous_form} {previous_pair}."
+                )
+            seen_stems[normalized] = (label, spec["pair_id"])
         a_items.append(first)
         b_items.append(second)
 
