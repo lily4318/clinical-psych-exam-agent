@@ -395,6 +395,17 @@ def test_output_preflight_uses_exporter_slug_and_refuses_dangling_symlink(tmp_pa
     assert not (tmp_path / "form_a_child-v-1.docx").exists()
 
 
+def test_non_directory_output_blocks_inference_before_any_model_calls(tmp_path):
+    """A file cannot be the output directory; fail before N local calls."""
+    output_path = tmp_path / "not-a-directory"
+    output_path.write_bytes(b"keep this file")
+    model = FakeModel()
+    with pytest.raises(NotADirectoryError, match="output directory"):
+        generate_child_parallel_docx(model, _evidence(), output_path, items_per_form=20)
+    assert model.calls == []
+    assert output_path.read_bytes() == b"keep this file"
+
+
 def test_same_version_cannot_overwrite_existing_delivered_paper(tmp_path):
     first = generate_child_parallel_docx(
         FakeModel(), _evidence(), tmp_path, items_per_form=1
