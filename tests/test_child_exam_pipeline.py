@@ -366,6 +366,46 @@ def test_unsupported_hard_links_fail_without_partial_delivery(tmp_path, monkeypa
     assert not list(tmp_path.glob(".child-docx-stage-*"))
 
 
+@pytest.mark.parametrize("existing_form", ["form_a", "form_b"])
+def test_existing_output_blocks_inference_before_any_local_model_calls(
+    tmp_path, existing_form
+):
+    """Do not spend N slow local inference calls on a version that cannot publish."""
+    existing = tmp_path / f"{existing_form}_child-unverified-v0.1.docx"
+    existing.write_bytes(b"pre-existing user file")
+    model = FakeModel()
+    with pytest.raises(FileExistsError, match="Refusing to overwrite"):
+        generate_child_parallel_docx(model, _evidence(), tmp_path, items_per_form=20)
+    assert model.calls == []
+    assert existing.read_bytes() == b"pre-existing user file"
+    assert list(tmp_path.glob("*.docx")) == [existing]
+
+
+def test_output_preflight_uses_exporter_slug_and_refuses_dangling_symlink(tmp_path):
+    """Slug collisions and dangling symlinks must not trigger paid-time local work."""
+    target = tmp_path / "form_b_child-v-1.docx"
+    target.symlink_to(tmp_path / "missing-destination.docx")
+    model = FakeModel()
+    with pytest.raises(FileExistsError, match="Refusing to overwrite"):
+        generate_child_parallel_docx(
+            model, _evidence(), tmp_path, items_per_form=20, version="child v/1"
+        )
+    assert model.calls == []
+    assert target.is_symlink()
+    assert not (tmp_path / "form_a_child-v-1.docx").exists()
+
+
+def test_non_directory_output_blocks_inference_before_any_model_calls(tmp_path):
+    """A file cannot be the output directory; fail before N local calls."""
+    output_path = tmp_path / "not-a-directory"
+    output_path.write_bytes(b"keep this file")
+    model = FakeModel()
+    with pytest.raises(NotADirectoryError, match="output directory"):
+        generate_child_parallel_docx(model, _evidence(), output_path, items_per_form=20)
+    assert model.calls == []
+    assert output_path.read_bytes() == b"keep this file"
+
+
 def test_same_version_cannot_overwrite_existing_delivered_paper(tmp_path):
     first = generate_child_parallel_docx(
         FakeModel(), _evidence(), tmp_path, items_per_form=1

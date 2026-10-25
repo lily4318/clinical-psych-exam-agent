@@ -16,7 +16,7 @@ from tempfile import TemporaryDirectory
 from typing import Any
 
 from .domain_blueprints import build_child_pair_specs, load_domain_blueprint
-from .export_docx import export_parallel_docx
+from .export_docx import _safe_slug, export_parallel_docx
 from .verify_external_delivery import normalize_question_stem, verify_pair
 from .ollama_provider import OllamaLocalJsonCallback
 from .child_source_fetch import fetch_official_guidance_evidence
@@ -272,6 +272,22 @@ def generate_child_parallel_docx(
         raise ValueError("Draft version must be non-empty.")
     if any(x in version.casefold() for x in ("formal", "approved", "核可")):
         raise ValueError("Drafts cannot be labelled as formal or approved.")
+
+    # Fail before N expensive local model calls when this draft version
+    # already has an output file. Match export_docx's filename slugging.
+    # The final os.link publication still protects against a later race.
+    output_root = Path(out_dir)
+    if os.path.lexists(output_root) and not output_root.is_dir():
+        raise NotADirectoryError(
+            f"Exam Word output directory is not a directory: {output_root}"
+        )
+    slug = _safe_slug(version)
+    for form in ("form_a", "form_b"):
+        destination = output_root / f"{form}_{slug}.docx"
+        if os.path.lexists(destination):
+            raise FileExistsError(
+                f"Refusing to overwrite an existing exam Word: {destination}"
+            )
 
     blueprint = load_domain_blueprint()
     specs = build_child_pair_specs(items_per_form, blueprint=blueprint)
