@@ -305,16 +305,60 @@ def test_post_export_structural_failure_publishes_neither_word(tmp_path, monkeyp
 
 def test_second_publication_failure_removes_first_word(tmp_path, monkeypatch):
     from pathlib import Path
+    from src import child_exam_pipeline
 
-    original = Path.replace
+    original = child_exam_pipeline.os.link
 
-    def block_second_file(self, target):
-        if self.name.startswith("form_b_"):
+    def block_second_file(source, target):
+        if Path(target).name.startswith("form_b_"):
             raise OSError("simulated second-file publication failure")
-        return original(self, target)
+        return original(source, target)
 
-    monkeypatch.setattr(Path, "replace", block_second_file)
+    monkeypatch.setattr(child_exam_pipeline.os, "link", block_second_file)
     with pytest.raises(OSError, match="second-file publication failure"):
+        generate_child_parallel_docx(
+            FakeModel(), _evidence(), tmp_path, items_per_form=2
+        )
+    assert not list(tmp_path.glob("*.docx"))
+    assert not list(tmp_path.glob(".child-docx-stage-*"))
+
+
+@pytest.mark.parametrize("blocked_form", ["a", "b"])
+def test_competing_publisher_cannot_be_overwritten(tmp_path, monkeypatch, blocked_form):
+    """The final path may appear after exists() but before publication."""
+    from pathlib import Path
+    from src import child_exam_pipeline
+
+    original = child_exam_pipeline.os.link
+    injected = []
+
+    def race_at_link(source, target):
+        destination = Path(target)
+        if destination.name.startswith(f"form_{blocked_form}_"):
+            destination.write_bytes(b"another publisher's document")
+            injected.append(destination)
+            raise FileExistsError("simulated competing publisher")
+        return original(source, target)
+
+    monkeypatch.setattr(child_exam_pipeline.os, "link", race_at_link)
+    with pytest.raises(FileExistsError, match="competing publisher"):
+        generate_child_parallel_docx(
+            FakeModel(), _evidence(), tmp_path, items_per_form=2
+        )
+    assert len(injected) == 1
+    assert injected[0].read_bytes() == b"another publisher's document"
+    assert list(tmp_path.glob("*.docx")) == injected
+    assert not list(tmp_path.glob(".child-docx-stage-*"))
+
+
+def test_unsupported_hard_links_fail_without_partial_delivery(tmp_path, monkeypatch):
+    from src import child_exam_pipeline
+
+    def unsupported(*args, **kwargs):
+        raise OSError("hard links unsupported")
+
+    monkeypatch.setattr(child_exam_pipeline.os, "link", unsupported)
+    with pytest.raises(OSError, match="hard links unsupported"):
         generate_child_parallel_docx(
             FakeModel(), _evidence(), tmp_path, items_per_form=2
         )
