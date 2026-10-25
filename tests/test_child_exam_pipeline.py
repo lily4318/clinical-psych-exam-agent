@@ -334,3 +334,36 @@ def test_same_version_cannot_overwrite_existing_delivered_paper(tmp_path):
     assert len(list(tmp_path.glob("*.docx"))) == 2
     assert all(first[key].read_bytes() == value for key, value in previous.items())
     assert not list(tmp_path.glob(".child-docx-stage-*"))
+
+
+@pytest.mark.parametrize("reused_form", ["form_a", "form_b"])
+def test_repeated_stem_across_different_pairs_blocks_both_word_files(
+    tmp_path, reused_form
+):
+    """Model can repeat a previous stem even when A/B of each pair differ."""
+    first_stem = {}
+
+    def repeat_previous(response, request):
+        if request["pair_spec"]["pair_id"] == "P01":
+            first_stem["value"] = response["form_a"]["stem"]
+        else:
+            response[reused_form]["stem"] = "  " + first_stem["value"] + "　"
+
+    model = FakeModel(repeat_previous)
+    with pytest.raises(ValueError, match="duplicate question stem"):
+        generate_child_parallel_docx(model, _evidence(), tmp_path, items_per_form=2)
+    assert len(model.calls) == 2
+    assert not list(tmp_path.glob("*.docx"))
+
+
+def test_same_pair_fullwidth_normalized_stems_are_rejected(tmp_path):
+    def repeat_fullwidth(response, request):
+        response["form_b"]["stem"] = (
+            "　" + response["form_a"]["stem"].replace("P01", "Ｐ０１") + "　"
+        )
+
+    with pytest.raises(ValueError, match="parallel question stems are identical"):
+        generate_child_parallel_docx(
+            FakeModel(repeat_fullwidth), _evidence(), tmp_path, items_per_form=1
+        )
+    assert not list(tmp_path.glob("*.docx"))

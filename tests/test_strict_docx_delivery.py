@@ -173,3 +173,22 @@ def test_legacy_files_can_still_be_read_but_not_called_strict(tmp_path):
         assert form["reader_layout"] == "legacy_compatible"
         assert form["complete_option_rationales"] is None
         assert form["warnings"]
+
+
+@pytest.mark.parametrize("repeat_target", ["same_form", "other_form"])
+def test_external_docx_rejects_reused_stem_at_different_question_number(
+    tmp_path, repeat_target
+):
+    """Externally generated Word cannot silently repeat a question elsewhere."""
+    a, b = _form("甲卷"), _form("乙卷")
+    repeated = a["items"][0]["stem"]
+    if repeat_target == "same_form":
+        a["items"][1]["stem"] = "　" + repeated + "  "
+    else:
+        b["items"][1]["stem"] = repeated.replace("1", "１")
+    pair = export_parallel_docx(a, b, tmp_path)
+    result = verify_pair(pair["form_a"], pair["form_b"], 2)
+    assert not result["ok"]
+    form = "form_a" if repeat_target == "same_form" else "form_b"
+    assert any("題幹重複" in e for e in result["files"][form]["errors"])
+    assert result["files"][form]["questions"] == 2
