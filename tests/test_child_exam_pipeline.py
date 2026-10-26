@@ -564,6 +564,30 @@ def test_split_inference_produces_two_strict_word_files_without_stub(tmp_path):
     assert verify_pair(paths["form_a"], paths["form_b"], 2)["ok"]
 
 
+def test_multisource_prompt_requires_real_support_and_refusal_still_blocks(tmp_path):
+    """A multi-source P04 refusal must not turn into a fabricated draft."""
+    def refuse_p04(response, request):
+        if (request["pair_spec"]["pair_id"] == "P04"
+                and request["form"]["form"] == "甲卷"):
+            response["source_insufficient"] = True
+
+    model = SingleFormFakeModel(refuse_p04)
+    with pytest.raises(ValueError, match="P04 form_a: model could not supply a valid item"):
+        generate_child_parallel_docx(
+            model, _evidence(), tmp_path, items_per_form=8,
+            split_pair_inference=True,
+        )
+    assert len(model.calls) == 7
+    p04 = model.calls[-1]
+    assert p04["pair_spec"]["category"] == "ASSESS"
+    assert set(p04["allowed_source_ids"]) == {
+        "NICE-NG87", "NICE-CG128", "NICE-NG11",
+    }
+    assert "其中至少一份摘錄" in p04["task"]
+    assert "省略 source_insufficient 或填 false" in p04["task"]
+    assert not list(tmp_path.glob("*.docx"))
+
+
 def test_split_inference_validates_a_before_calling_b(tmp_path):
     def break_a(response, request):
         if request["form"]["form"] == "甲卷":
