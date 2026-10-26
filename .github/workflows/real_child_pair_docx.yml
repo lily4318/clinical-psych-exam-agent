@@ -8,6 +8,7 @@ on:
     paths:
       - .github/workflows/real_child_pair_docx.yml
       - src/ollama_provider.py
+      - src/child_exam_pipeline.py
   workflow_dispatch:
 
 permissions:
