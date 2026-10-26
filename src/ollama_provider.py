@@ -53,7 +53,9 @@ def _format_for_request(request: dict[str, Any]) -> str | dict[str, Any]:
     text = {"type": "string", "minLength": 1}
     four_texts = {
         "type": "object",
-        "properties": {letter: text for letter in "ABCD"},
+        # Minimum answer-option length prevents one-character placeholders.
+        # Distinctness remains enforced by downstream validation.
+        "properties": {letter: {"type": "string", "minLength": 8} for letter in "ABCD"},
         "required": list("ABCD"),
         "additionalProperties": False,
     }

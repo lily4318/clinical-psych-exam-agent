@@ -155,6 +155,7 @@ def _single_form_request(
             "依照配對考點只產生本卷一題，請回傳 {item: {...}}。"
             "item 必須含 stem、options(A,B,C,D)、correct_answer、"
             "rationale(correct,A,B,C,D)、sources(來源ID陣列)。"
+            "四個選項必須各自具體、彼此不同，不得複製同一內容或只改標籤。"
             "每個選項解析須各自具體說明正誤，文字精簡但不能省略。"
             "答案位置必須符合 form.target_answer_position；"
             "來源不足請回報 source_insufficient=true。"

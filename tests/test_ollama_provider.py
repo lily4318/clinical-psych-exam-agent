@@ -331,6 +331,10 @@ def test_single_child_item_uses_schema_for_required_envelope_and_sources(monkeyp
     assert item["properties"]["correct_answer"]["enum"] == ["C"]
     assert item["properties"]["sources"]["items"]["enum"] == ["NICE-NG87"]
     assert item["properties"]["options"]["required"] == list("ABCD")
+    assert all(
+        item["properties"]["options"]["properties"][letter]["minLength"] == 8
+        for letter in "ABCD"
+    )
     assert item["properties"]["rationale"]["required"] == ["correct", *"ABCD"]
     assert schema["properties"]["source_insufficient"]["type"] == "boolean"
     assert "NICE-NG87" not in str(schema["properties"]["item"]["properties"]["stem"])
