@@ -9,6 +9,9 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
+import sys
+import time
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
@@ -214,6 +217,21 @@ class OllamaLocalJsonCallback:
         # Reject redirects during inference as well as readiness checks.
         # Otherwise a local HTTP redirect could forward the clinical prompt
         # to an external service despite the fixed loopback request URL.
+        # Emit bounded, content-free progress before a potentially long CPU call.
+        # This makes Actions cancellations diagnosable without logging prompts,
+        # clinical cases, answers, URLs or raw model output.
+        spec = request.get("pair_spec")
+        raw_pair_id = spec.get("pair_id") if isinstance(spec, dict) else None
+        pair_id = (
+            raw_pair_id if isinstance(raw_pair_id, str)
+            and re.fullmatch(r"P[0-9]{2,4}", raw_pair_id) else "unknown"
+        )
+        form = request.get("form")
+        raw_form = form.get("form") if isinstance(form, dict) else None
+        form_code = "A" if raw_form == "甲卷" else "B" if raw_form == "乙卷" else "-"
+        started = time.monotonic()
+        print(f"[ollama] start pair={pair_id} form={form_code}",
+              file=sys.stderr, flush=True)
         opener = build_opener(ProxyHandler({}), _NoRedirect())
         try:
             with opener.open(http_request, timeout=self.timeout_seconds) as response:
@@ -295,4 +313,17 @@ class OllamaLocalJsonCallback:
                 "Local model reported source_insufficient; generation stopped. "
                 "Verify source text before generating clinical questions."
             )
+        # Ollama token counts are transport telemetry, not a quality score.
+        # Never trust untyped or negative usage fields from the response.
+        def safe_count(field: str) -> str:
+            value = envelope.get(field)
+            return str(value) if type(value) is int and value >= 0 else "unknown"
+
+        print(
+            f"[ollama] complete pair={pair_id} form={form_code} "
+            f"elapsed_s={time.monotonic() - started:.1f} "
+            f"prompt_tokens={safe_count('prompt_eval_count')} "
+            f"output_tokens={safe_count('eval_count')}",
+            file=sys.stderr, flush=True,
+        )
         return result
