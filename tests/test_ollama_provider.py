@@ -308,3 +308,41 @@ def test_inference_redirect_http_error_stops_without_fallback(monkeypatch):
     assert len(opener.calls) == 1
     assert opener.calls[0][0].full_url == "http://127.0.0.1:11434/api/chat"
     assert isinstance(captured[1], ollama_provider._NoRedirect)
+
+def test_single_child_item_uses_schema_for_required_envelope_and_sources(monkeypatch):
+    """Schema should prevent the live model's missing-item envelope failure."""
+    opener, _ = _inject(monkeypatch, _envelope('{"item": {}}'))
+    callback = OllamaLocalJsonCallback(model="local-test")
+    request = {
+        "system_instruction": "兒少臨床命題",
+        "form": {"form": "甲卷", "target_answer_position": "C"},
+        "source_context": [{"source_id": "NICE-NG87", "excerpt": "source"}],
+        "output_contract": {"required": ["item"]},
+    }
+    assert callback(request) == {"item": {}}
+    payload = json.loads(opener.calls[0][0].data)
+    schema = payload["format"]
+    assert schema["type"] == "object"
+    assert schema["required"] == ["item"]
+    item = schema["properties"]["item"]
+    assert set(item["required"]) == {
+        "stem", "options", "correct_answer", "rationale", "sources",
+    }
+    assert item["properties"]["correct_answer"]["enum"] == ["C"]
+    assert item["properties"]["sources"]["items"]["enum"] == ["NICE-NG87"]
+    assert item["properties"]["options"]["required"] == list("ABCD")
+    assert item["properties"]["rationale"]["required"] == ["correct", *"ABCD"]
+    assert schema["properties"]["source_insufficient"]["type"] == "boolean"
+    assert "NICE-NG87" not in str(schema["properties"]["item"]["properties"]["stem"])
+
+
+def test_generic_json_and_incomplete_single_request_remain_unmodified(monkeypatch):
+    opener, _ = _inject(monkeypatch, _envelope('{"ok": true}'))
+    callback = OllamaLocalJsonCallback(model="local-test")
+    callback({"system_instruction": "probe", "output_contract": {"required": ["item"]}})
+    callback({"system_instruction": "probe", "form": {"target_answer_position": "A"}})
+    assert all(
+        json.loads(call[0].data)["format"] == "json" for call in opener.calls
+    )
+
+
