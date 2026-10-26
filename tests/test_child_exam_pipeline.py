@@ -657,3 +657,29 @@ def test_split_inference_rejects_pair_id_mismatch(tmp_path):
         )
     assert len(model.calls) == 1
     assert not list(tmp_path.glob("*.docx"))
+
+
+@pytest.mark.parametrize("replacement,invalid,distinct,length", [
+    ("測試選項一", "none", "3/4", "B:5"),
+    ("[STUB]", "B", "4/4", "B:6"),
+    (None, "B", "3/4", "B:nonstring"),
+])
+def test_option_failure_reports_safe_diagnostics_without_option_text(
+    tmp_path, replacement, invalid, distinct, length,
+):
+    """A live model failure must identify cause without printing clinical content."""
+    def mutate(response, request):
+        response["form_a"]["options"]["B"] = replacement
+
+    with pytest.raises(ValueError, match="Options must be substantial") as caught:
+        generate_child_parallel_docx(
+            FakeModel(mutate), _evidence(), tmp_path, items_per_form=1
+        )
+    message = str(caught.value)
+    assert f"invalid={invalid}" in message
+    assert f"distinct={distinct}" in message
+    assert length in message
+    assert "測試選項一" not in message
+    assert "[STUB]" not in message
+    assert "nonstring" in message if replacement is None else True
+    assert not list(tmp_path.glob("*.docx"))
