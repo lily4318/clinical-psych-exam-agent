@@ -15,6 +15,12 @@ on:
 permissions:
   contents: read
 
+# Cancel stale CPU-only diagnostics for the same PR/ref when a newer commit arrives.
+# This does not cancel a different PR or a separate branch's test run.
+concurrency:
+  group: real-child-pair-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   real-child-pair:
     if: ${{ github.event.repository.private == false && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository) }}
