@@ -45,6 +45,30 @@ jobs:
         run: |
           set -euo pipefail
           python -m src.child_exam_pipeline --auto-evidence --items 8 --model qwen2.5:3b --timeout-seconds 300 --max-output-tokens 3072 --split-pair-inference --out "$RUNNER_TEMP/real-child-pair"
+      # The real 2026-10-26 run reached P03 then received HTTP 500 from
+      # Ollama. Never assume that a pulled model is missing or that pytest failed.
+      # Capture bounded, content-free resource signals; do not print prompts,
+      # clinical passages, model responses, or raw Ollama server logs.
+      - name: Diagnose Ollama HTTP failure without clinical text
+        if: ${{ failure() && steps.generate.outcome == 'failure' }}
+        shell: bash
+        run: |
+          set +e
+          echo "ollama_container_running=$(docker inspect -f '{{.State.Running}}' clinical-exam-ollama 2>/dev/null || echo unknown)"
+          echo "ollama_container_oom_killed=$(docker inspect -f '{{.State.OOMKilled}}' clinical-exam-ollama 2>/dev/null || echo unknown)"
+          echo "host_memory_available_kib=$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)"
+          logs="$(docker logs --tail 200 clinical-exam-ollama 2>&1)"
+          if printf '%s' "$logs" | grep -Eiq '(out of memory|oom.?kill|failed to allocate|cannot allocate memory|memory required)'; then
+            echo 'ollama_log_memory_signal=true'
+          else
+            echo 'ollama_log_memory_signal=false_or_not_visible'
+          fi
+          if printf '%s' "$logs" | grep -Eiq '(runner.*exited|runner.*crashed|signal: killed)'; then
+            echo 'ollama_log_runner_exit_signal=true'
+          else
+            echo 'ollama_log_runner_exit_signal=false_or_not_visible'
+          fi
+          unset logs
       - name: Verify both generated DOCX files (reader layout and A-D explanations)
         id: verify
         shell: bash
