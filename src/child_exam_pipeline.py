@@ -161,10 +161,19 @@ def _single_form_request(
             "每個選項解析須各自具體說明正誤，文字精簡但不能省略。"
             "答案位置必須符合 form.target_answer_position；"
             "來源不足請回報 source_insufficient=true。"
+            "sources 陣列只能填 allowed_source_ids 中的完整 ID，"
+            "不得引用其他指引、縮寫、標題或自行產生的來源名稱；"
+            "不能確定引用是否受到摘錄支持時回報來源不足。"
             "不要輸出題號、卷別、難度、核可狀態等程式可填入的欄位。"
         ),
         "pair_spec": pair_request["pair_spec"],
         "form": slot,
+        # An explicit, pair-specific whitelist is easier for a small model to
+        # follow than extracting permitted citations from long source excerpts.
+        # This is a prompt hint only; _check_item remains the fail-closed gate.
+        "allowed_source_ids": sorted({
+            source["source_id"] for source in pair_request["source_context"]
+        }),
         "source_context": [
             {"source_id": source["source_id"], "excerpt": source["excerpt"]}
             for source in pair_request["source_context"]
