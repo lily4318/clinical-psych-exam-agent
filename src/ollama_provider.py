@@ -26,6 +26,75 @@ class _NoRedirect(HTTPRedirectHandler):
         return None
 
 
+def _format_for_request(request: dict[str, Any]) -> str | dict[str, Any]:
+    """Constrain the split single-item response, not unrelated JSON callers.
+
+    JSON mode alone guarantees syntax, not the required `item` envelope.
+    The schema is a generation hint; downstream clinical/source validators
+    remain authoritative and fail closed on malformed or insufficient output.
+    """
+    contract = request.get("output_contract")
+    slot = request.get("form")
+    contexts = request.get("source_context")
+    if not (
+        isinstance(contract, dict)
+        and contract.get("required") == ["item"]
+        and isinstance(slot, dict)
+        and slot.get("target_answer_position") in ("A", "B", "C", "D")
+        and isinstance(contexts, list)
+    ):
+        return "json"
+    source_ids = [
+        row["source_id"] for row in contexts
+        if isinstance(row, dict) and isinstance(row.get("source_id"), str)
+    ]
+    if not source_ids:
+        return "json"
+    text = {"type": "string", "minLength": 1}
+    four_texts = {
+        "type": "object",
+        "properties": {letter: text for letter in "ABCD"},
+        "required": list("ABCD"),
+        "additionalProperties": False,
+    }
+    rationale = {
+        "type": "object",
+        "properties": {"correct": text, **{letter: text for letter in "ABCD"}},
+        "required": ["correct", *"ABCD"],
+        "additionalProperties": False,
+    }
+    return {
+        "type": "object",
+        "properties": {
+            "item": {
+                "type": "object",
+                "properties": {
+                    "stem": text,
+                    "options": four_texts,
+                    "correct_answer": {
+                        "type": "string",
+                        "enum": [slot["target_answer_position"]],
+                    },
+                    "rationale": rationale,
+                    "sources": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": sorted(set(source_ids))},
+                        "minItems": 1,
+                        "uniqueItems": True,
+                    },
+                },
+                "required": [
+                    "stem", "options", "correct_answer", "rationale", "sources",
+                ],
+                "additionalProperties": False,
+            },
+            "source_insufficient": {"type": "boolean"},
+        },
+        "required": ["item"],
+        "additionalProperties": False,
+    }
+
+
 class OllamaLocalJsonCallback:
     """Bridge existing structured generation requests to local Ollama chat.
 
@@ -118,7 +187,7 @@ class OllamaLocalJsonCallback:
         payload = {
             "model": self.model,
             "stream": False,
-            "format": "json",
+            "format": _format_for_request(request),
             "options": options,
             "messages": [
                 {"role": "system", "content": system},
