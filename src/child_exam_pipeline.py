@@ -237,9 +237,24 @@ def _check_item(
     options = item.get("options")
     if not isinstance(options, dict) or set(options) != set(LETTERS):
         errors.append("Options must contain exactly A-D.")
-    elif (not all(_substantive(options[k]) for k in LETTERS)
-          or len({options[k].strip().casefold() for k in LETTERS}) != 4):
-        errors.append("Options must be substantial and pairwise distinct.")
+    else:
+        invalid = [key for key in LETTERS if not _substantive(options[key])]
+        normalized = [
+            options[key].strip().casefold()
+            for key in LETTERS if isinstance(options[key], str)
+        ]
+        distinct = len(set(normalized))
+        if invalid or distinct != 4:
+            # Diagnose structural failure without exposing clinical answer text.
+            lengths = ",".join(
+                f"{key}:{len(options[key]) if isinstance(options[key], str) else 'nonstring'}"
+                for key in LETTERS
+            )
+            errors.append(
+                "Options must be substantial and pairwise distinct "
+                f"(invalid={','.join(invalid) or 'none'}; "
+                f"distinct={distinct}/4; lengths={lengths})."
+            )
 
     rationale = item.get("rationale")
     if not isinstance(rationale, dict) or any(
