@@ -36,14 +36,14 @@ jobs:
             sleep 2
           done
           curl --silent --show-error --fail http://127.0.0.1:11434/api/tags >/dev/null
-      - name: Pull free tiny diagnostic model (not a clinical quality model)
-        run: docker exec clinical-exam-ollama ollama pull qwen2.5:1.5b
+      - name: Pull free 3B diagnostic model (not a clinical quality model)
+        run: docker exec clinical-exam-ollama ollama pull qwen2.5:3b
       - name: Generate ONE real source-grounded A/B pair in TWO bounded calls
         id: generate
         shell: bash
         run: |
           set -euo pipefail
-          python -m src.child_exam_pipeline --auto-evidence --items 1 --model qwen2.5:1.5b --timeout-seconds 300 --max-output-tokens 3072 --split-pair-inference --out "$RUNNER_TEMP/real-child-pair"
+          python -m src.child_exam_pipeline --auto-evidence --items 1 --model qwen2.5:3b --timeout-seconds 300 --max-output-tokens 3072 --split-pair-inference --out "$RUNNER_TEMP/real-child-pair"
       - name: Verify both generated DOCX files (reader layout and A-D explanations)
         id: verify
         shell: bash
@@ -67,7 +67,7 @@ jobs:
             echo 'Baseline: main d728665e626a59a08bd7587d6423909d0e14ebb4; pytest 263/263; source-only 1/1; nonclinical JSON 1/1.'
             echo "Generation: **$GENERATION_OUTCOME**; DOCX verification: **$VERIFICATION_OUTCOME**."
             echo 'Both bounded inferences and both DOCX checks must pass to claim one successful A/B pair. A red run is evidence of a real integration failure.'
-            echo 'Model: qwen2.5:1.5b; two separate calls (A then B), each capped at 3072 output tokens and 300-second timeout; source: live NICE HTTPS; one pair only.'
+            echo 'Model: qwen2.5:3b; two separate calls (A then B), each capped at 3072 output tokens and 300-second timeout; source: live NICE HTTPS; one pair only.'
             echo 'No mock, no paid API, no model fine-tuning; no artifact storage or automatic publishing.'
             echo 'This does NOT establish semantic source support, clinical safety, expert validation, psychometric equivalence, 20-pair throughput, or chat download links.'
           } >> "$GITHUB_STEP_SUMMARY"
