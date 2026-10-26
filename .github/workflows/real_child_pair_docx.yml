@@ -37,7 +37,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker run -d --rm --name clinical-exam-ollama -p 127.0.0.1:11434:11434 ollama/ollama:latest
+          # The 2026-10-27 live P04-B run reported 2050 prompt tokens, a
+          # possible 4k-context overflow/truncation signature. Keep this
+          # bounded to 8k on the free CPU runner; no paid inference.
+          docker run -d --rm --name clinical-exam-ollama -e OLLAMA_CONTEXT_LENGTH=8192 -p 127.0.0.1:11434:11434 ollama/ollama:latest
           for i in $(seq 1 40); do
             if curl --silent --fail http://127.0.0.1:11434/api/tags >/dev/null; then break; fi
             sleep 2
