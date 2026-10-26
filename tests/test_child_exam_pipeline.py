@@ -513,3 +513,147 @@ def test_same_pair_fullwidth_normalized_stems_are_rejected(tmp_path):
             FakeModel(repeat_fullwidth), _evidence(), tmp_path, items_per_form=1
         )
     assert not list(tmp_path.glob("*.docx"))
+
+
+class SingleFormFakeModel:
+    """Synthetic responses only: test bounded transport contract, not clinical quality."""
+
+    def __init__(self, mutate=None):
+        self.calls = []
+        self.mutate = mutate
+
+    def __call__(self, request):
+        self.calls.append(request)
+        spec = request["pair_spec"]
+        slot = request["form"]
+        item = _item(
+            slot["form"], spec, slot, request["source_context"][0]["source_id"]
+        )
+        for field in (
+            "item_id", "form", "pair_id", "category", "subtopic",
+            "difficulty", "cognitive_level", "quality_status",
+        ):
+            item.pop(field)
+        result = {"item": item}
+        if self.mutate:
+            self.mutate(result, request)
+        return result
+
+
+def test_split_inference_produces_two_strict_word_files_without_stub(tmp_path):
+    from src.verify_external_delivery import verify_pair
+
+    model = SingleFormFakeModel()
+    paths = generate_child_parallel_docx(
+        model, _evidence(), tmp_path, items_per_form=2,
+        split_pair_inference=True,
+    )
+    assert len(model.calls) == 4
+    assert [call["form"]["form"] for call in model.calls] == [
+        "甲卷", "乙卷", "甲卷", "乙卷",
+    ]
+    assert model.calls[1]["different_from_stem"].startswith("甲卷")
+    assert model.calls[3]["different_from_stem"].startswith("甲卷")
+    assert "different_from_stem" not in model.calls[0]
+    assert all(call["output_contract"]["required"] == ["item"] for call in model.calls)
+    assert all(
+        set(source) == {"source_id", "excerpt"}
+        for call in model.calls for source in call["source_context"]
+    )
+    assert verify_pair(paths["form_a"], paths["form_b"], 2)["ok"]
+
+
+def test_split_inference_validates_a_before_calling_b(tmp_path):
+    def break_a(response, request):
+        if request["form"]["form"] == "甲卷":
+            response["item"]["sources"] = ["UNKNOWN"]
+
+    model = SingleFormFakeModel(break_a)
+    with pytest.raises(ValueError, match="Sources"):
+        generate_child_parallel_docx(
+            model, _evidence(), tmp_path, items_per_form=1,
+            split_pair_inference=True,
+        )
+    assert len(model.calls) == 1
+    assert not list(tmp_path.glob("*.docx"))
+
+
+def test_split_inference_rejects_invalid_b_without_partial_word(tmp_path):
+    def break_b(response, request):
+        if request["form"]["form"] == "乙卷":
+            response["item"]["rationale"].pop("D")
+
+    model = SingleFormFakeModel(break_b)
+    with pytest.raises(ValueError, match="Rationale"):
+        generate_child_parallel_docx(
+            model, _evidence(), tmp_path, items_per_form=1,
+            split_pair_inference=True,
+        )
+    assert len(model.calls) == 2
+    assert not list(tmp_path.glob("*.docx"))
+
+
+def test_split_inference_rejects_duplicate_pair_stems(tmp_path):
+    first_stem = {}
+
+    def duplicate(response, request):
+        if request["form"]["form"] == "甲卷":
+            first_stem["value"] = response["item"]["stem"]
+        else:
+            response["item"]["stem"] = first_stem["value"]
+
+    model = SingleFormFakeModel(duplicate)
+    with pytest.raises(ValueError, match="parallel question stems are identical"):
+        generate_child_parallel_docx(
+            model, _evidence(), tmp_path, items_per_form=1,
+            split_pair_inference=True,
+        )
+    assert len(model.calls) == 2
+    assert not list(tmp_path.glob("*.docx"))
+
+
+def test_split_inference_rejects_conflicting_planned_metadata(tmp_path):
+    def conflict(response, request):
+        response["item"]["category"] = "WRONG"
+
+    model = SingleFormFakeModel(conflict)
+    with pytest.raises(ValueError, match="category"):
+        generate_child_parallel_docx(
+            model, _evidence(), tmp_path, items_per_form=1,
+            split_pair_inference=True,
+        )
+    assert len(model.calls) == 1
+    assert not list(tmp_path.glob("*.docx"))
+
+
+def test_split_inference_refuses_source_insufficient_without_second_call(tmp_path):
+    class Insufficient:
+        def __init__(self):
+            self.calls = 0
+
+        def __call__(self, request):
+            self.calls += 1
+            return {"source_insufficient": True}
+
+    model = Insufficient()
+    with pytest.raises(ValueError, match="could not supply a valid item"):
+        generate_child_parallel_docx(
+            model, _evidence(), tmp_path, items_per_form=1,
+            split_pair_inference=True,
+        )
+    assert model.calls == 1
+    assert not list(tmp_path.glob("*.docx"))
+
+
+def test_split_inference_rejects_pair_id_mismatch(tmp_path):
+    def mismatch(response, request):
+        response["pair_id"] = "P99"
+
+    model = SingleFormFakeModel(mismatch)
+    with pytest.raises(ValueError, match="pair_id mismatch"):
+        generate_child_parallel_docx(
+            model, _evidence(), tmp_path, items_per_form=1,
+            split_pair_inference=True,
+        )
+    assert len(model.calls) == 1
+    assert not list(tmp_path.glob("*.docx"))
