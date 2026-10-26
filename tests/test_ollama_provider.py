@@ -350,3 +350,36 @@ def test_generic_json_and_incomplete_single_request_remain_unmodified(monkeypatc
     )
 
 
+
+
+def test_structured_child_prompt_deduplicates_system_and_schema_without_losing_evidence(monkeypatch):
+    """Reduce CPU prompt tokens without dropping instructions, sources or schema."""
+    opener, _ = _inject(monkeypatch, _envelope('{"item": {}}'))
+    callback = OllamaLocalJsonCallback(model="local-test")
+    request = {
+        "system_instruction": "臨床安全規則",
+        "task": "依官方原文產生完整的單一最佳答案題",
+        "pair_spec": {"pair_id": "P01", "core_topic": "兒少臨床評估"},
+        "form": {"form": "甲卷", "target_answer_position": "C"},
+        "source_context": [{"source_id": "NICE-NG87", "excerpt": "官方來源測試原文"}],
+        "output_contract": {"required": ["item"]},
+    }
+    assert callback(request) == {"item": {}}
+    payload = json.loads(opener.calls[0][0].data)
+    assert payload["messages"][0]["content"] == request["system_instruction"]
+    assert payload["format"]["required"] == ["item"]
+    assert payload["format"]["properties"]["item"]["properties"]["sources"]["items"]["enum"] == ["NICE-NG87"]
+    user_message = payload["messages"][1]["content"]
+    serialized_request = json.loads(user_message.split("\\n\\n", 1)[1])
+    assert "system_instruction" not in serialized_request
+    assert "output_contract" not in serialized_request
+    for key in ("task", "pair_spec", "form", "source_context"):
+        assert serialized_request[key] == request[key]
+    assert request["system_instruction"] not in user_message
+    assert request["source_context"][0]["excerpt"] in user_message
+
+    # Unstructured generic callers keep the original transport contract.
+    callback({"system_instruction": "generic rules", "task": "generic task"})
+    generic = json.loads(opener.calls[1][0].data)
+    assert generic["format"] == "json"
+    assert '"system_instruction": "generic rules"' in generic["messages"][1]["content"]
