@@ -19,6 +19,12 @@ from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_ope
 _MAX_PAGE_BYTES = 3 * 1024 * 1024
 _MAX_EXCERPT_CHARS = 8000
 _MIN_EXCERPT_CHARS = 400
+_ASSESSMENT_SECTIONS = {
+    # Original first-8k excerpts may omit later assessment recommendations.
+    "NICE-NG87": (r"\b1\.3\s+Diagnosis\b", r"\b1\.3\.1\b"),
+    "NICE-CG128": (r"\b1\.5\s+Autism diagnostic assessment\b", r"\b1\.5\.1\b"),
+    "NICE-NG11": (r"\b1\.5\s+Assessment of behaviour that challenges\b", r"\b1\.5\.1\b"),
+}
 _ALLOWED_HOST = "www.nice.org.uk"
 _ALLOWED_PATH = re.compile(r"^/guidance/(ng|cg)[0-9]+/chapter/", re.IGNORECASE)
 
@@ -113,7 +119,32 @@ def _extract_recommendations(body: bytes, *, source_id: str) -> str:
         raise ValueError(f"{source_id}: official recommendations section not identified.")
     index = re.search(r"\bRecommendations\b", text, flags=re.IGNORECASE)
     assert index is not None
-    excerpt = text[index.start():index.start() + _MAX_EXCERPT_CHARS]
+    recommendations = text[index.start():]
+    excerpt = recommendations[:_MAX_EXCERPT_CHARS]
+    # Preserve original diagnosis/assessment guidance even when the introductory
+    # material pushes it beyond the first 8,000 characters. Mark the omission.
+    # This is a bounded excerpt, not claim-level semantic verification.
+    section = _ASSESSMENT_SECTIONS.get(source_id)
+    if section:
+        heading, first_recommendation = section
+        candidates = [
+            match for match in re.finditer(heading, recommendations, re.IGNORECASE)
+            if re.search(
+                first_recommendation,
+                recommendations[match.end():match.end() + 700],
+                re.IGNORECASE,
+            )
+        ]
+        if candidates:
+            offset = candidates[-1].start()
+            prefix_chars = 1400
+            separator = " [...] "
+            if offset > _MAX_EXCERPT_CHARS - prefix_chars:
+                tail_chars = _MAX_EXCERPT_CHARS - prefix_chars - len(separator)
+                excerpt = (
+                    recommendations[:prefix_chars] + separator
+                    + recommendations[offset:offset + tail_chars]
+                )
     if len(excerpt) < _MIN_EXCERPT_CHARS:
         raise ValueError(f"{source_id}: recommendations excerpt is too short.")
     return excerpt
