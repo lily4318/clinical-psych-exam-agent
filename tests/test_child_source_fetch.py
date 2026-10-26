@@ -135,6 +135,38 @@ def test_redirected_final_url_is_rejected(monkeypatch):
         fetch.fetch_official_guidance_evidence(sources(), {"NICE-NG87"})
 
 
+def test_transient_https_timeout_retries_only_once(monkeypatch):
+    class FlakyOpener(FakeOpener):
+        def open(self, request, timeout):
+            self.calls.append((request.full_url, timeout))
+            if len(self.calls) == 1:
+                raise TimeoutError("transient read timeout")
+            return Response(request.full_url, self.body, self.content_type, self.final_url)
+
+    fake = FlakyOpener(html_page())
+    set_fake_opener(monkeypatch, fake)
+    evidence = fetch.fetch_official_guidance_evidence(sources(), {"NICE-NG87"})
+    assert len(fake.calls) == 2
+    assert all(call == (sources()["NICE-NG87"]["url"], 20) for call in fake.calls)
+    assert evidence["NICE-NG87"]["verification_status"] == "retrieved_excerpt_not_semantically_verified"
+
+
+def test_persistent_timeout_fails_closed_after_two_attempts(monkeypatch):
+    fake = FakeOpener(b"", error=TimeoutError("read timeout"))
+    set_fake_opener(monkeypatch, fake)
+    with pytest.raises(RuntimeError, match="No model call or exam output"):
+        fetch.fetch_official_guidance_evidence(sources(), {"NICE-NG87"})
+    assert len(fake.calls) == 2
+
+
+def test_non_timeout_network_error_never_retries(monkeypatch):
+    fake = FakeOpener(b"", error=URLError("offline"))
+    set_fake_opener(monkeypatch, fake)
+    with pytest.raises(RuntimeError, match="could not fetch"):
+        fetch.fetch_official_guidance_evidence(sources(), {"NICE-NG87"})
+    assert len(fake.calls) == 1
+
+
 def test_source_network_error_stops_generation(monkeypatch):
     set_fake_opener(monkeypatch, FakeOpener(b"", error=URLError("offline")))
     with pytest.raises(RuntimeError, match="could not fetch"):

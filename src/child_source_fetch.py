@@ -125,7 +125,7 @@ def fetch_official_guidance_evidence(
     *,
     timeout_seconds: float = 20,
 ) -> dict[str, dict[str, str]]:
-    """Fetch each required clinical source once; fail on any network/HTML error.
+    """Fetch each required clinical source with at most one timeout retry.
 
     The caller supplies the *already validated* domain blueprint's source
     catalog. User-supplied URLs never determine the destination.
@@ -151,20 +151,25 @@ def fetch_official_guidance_evidence(
             "User-Agent": "ClinicalPsychExamAgent/0.2 (public-guideline-fetch)",
             "Accept": "text/html",
         })
-        try:
-            with opener.open(request, timeout=timeout_seconds) as response:
-                mime = response.headers.get("Content-Type", "")
-                if "text/html" not in mime.lower():
-                    raise ValueError(f"{source_id}: unexpected content type {mime!r}.")
-                # Redirects are disabled; an unexpected final URL is also rejected.
-                if response.geturl() != url:
-                    raise ValueError(f"{source_id}: unexpected final URL.")
-                raw = response.read(_MAX_PAGE_BYTES + 1)
-        except (HTTPError, URLError, TimeoutError, OSError) as exc:
-            raise RuntimeError(
-                f"{source_id}: could not fetch the official guideline. "
-                "No model call or exam output is permitted without evidence."
-            ) from exc
+        # Retry only a transient HTTPS timeout once; all other failures remain fatal.
+        for attempt in range(2):
+            try:
+                with opener.open(request, timeout=timeout_seconds) as response:
+                    mime = response.headers.get("Content-Type", "")
+                    if "text/html" not in mime.lower():
+                        raise ValueError(f"{source_id}: unexpected content type {mime!r}.")
+                    # Redirects are disabled; an unexpected final URL is also rejected.
+                    if response.geturl() != url:
+                        raise ValueError(f"{source_id}: unexpected final URL.")
+                    raw = response.read(_MAX_PAGE_BYTES + 1)
+                break
+            except (HTTPError, URLError, TimeoutError, OSError) as exc:
+                if isinstance(exc, TimeoutError) and attempt == 0:
+                    continue
+                raise RuntimeError(
+                    f"{source_id}: could not fetch the official guideline. "
+                    "No model call or exam output is permitted without evidence."
+                ) from exc
 
         if len(raw) > _MAX_PAGE_BYTES:
             raise ValueError(f"{source_id}: official page exceeds the size limit.")

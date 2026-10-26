@@ -9,6 +9,7 @@ on:
       - .github/workflows/real_child_pair_docx.yml
       - src/ollama_provider.py
       - src/child_exam_pipeline.py
+      - src/child_source_fetch.py
   workflow_dispatch:
 
 permissions:
