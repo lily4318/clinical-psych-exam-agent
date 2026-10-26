@@ -787,3 +787,24 @@ def test_split_b_prompt_does_not_leak_a_stem_even_on_retry(tmp_path):
         assert "different_from_stem" not in call
     assert model.calls[2]["retry_reason"] == "identical_parallel_stem"
     assert verify_pair(paths["form_a"], paths["form_b"], 1)["ok"]
+
+
+def test_split_multisource_prompt_whitelists_only_supplied_evidence_ids():
+    """P03-style multi-source prompts must not invite invented citation IDs."""
+    from src.child_exam_pipeline import _request, _single_form_request
+    from src.domain_blueprints import build_child_pair_specs
+
+    spec = build_child_pair_specs(8)[2]
+    assert len(spec["source_ids"]) >= 2
+    context = [
+        {"source_id": sid, "excerpt": f"Synthetic excerpt for {sid}."}
+        for sid in spec["source_ids"]
+    ]
+    pair = _request(spec, context, 3)
+    for key in ("form_a", "form_b"):
+        single = _single_form_request(pair, key)
+        assert single["allowed_source_ids"] == sorted(spec["source_ids"])
+        assert "sources 陣列只能填 allowed_source_ids" in single["task"]
+        assert single["source_context"] == context
+        assert single["output_contract"]["required"] == ["item"]
+        assert "source_insufficient=true" in single["task"]
