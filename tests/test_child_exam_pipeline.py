@@ -608,7 +608,8 @@ def test_split_inference_rejects_duplicate_pair_stems(tmp_path):
             model, _evidence(), tmp_path, items_per_form=1,
             split_pair_inference=True,
         )
-    assert len(model.calls) == 2
+    assert len(model.calls) == 3
+    assert model.calls[2]["retry_reason"] == "identical_parallel_stem"
     assert not list(tmp_path.glob("*.docx"))
 
 
