@@ -683,3 +683,39 @@ def test_option_failure_reports_safe_diagnostics_without_option_text(
     assert "[STUB]" not in message
     assert "nonstring" in message if replacement is None else True
     assert not list(tmp_path.glob("*.docx"))
+
+
+def test_split_inference_retries_duplicate_options_once_then_exports(tmp_path):
+    from src.verify_external_delivery import verify_pair
+
+    def duplicate_first_attempt(response, request):
+        if request["form"]["form"] == "甲卷" and "retry_reason" not in request:
+            response["item"]["options"]["B"] = response["item"]["options"]["A"]
+
+    model = SingleFormFakeModel(duplicate_first_attempt)
+    paths = generate_child_parallel_docx(
+        model, _evidence(), tmp_path, items_per_form=1,
+        split_pair_inference=True,
+    )
+    assert len(model.calls) == 3
+    assert [call["form"]["form"] for call in model.calls] == ["甲卷", "甲卷", "乙卷"]
+    assert "retry_reason" not in model.calls[0]
+    assert model.calls[1]["retry_reason"] == "duplicate_answer_options"
+    assert "重新產生完整 item" in model.calls[1]["task"]
+    assert "retry_reason" not in model.calls[2]
+    assert verify_pair(paths["form_a"], paths["form_b"], 1)["ok"]
+
+
+def test_split_inference_rejects_persistent_duplicate_options_after_one_retry(tmp_path):
+    def always_duplicate(response, request):
+        response["item"]["options"]["B"] = response["item"]["options"]["A"]
+
+    model = SingleFormFakeModel(always_duplicate)
+    with pytest.raises(ValueError, match="distinct=3/4"):
+        generate_child_parallel_docx(
+            model, _evidence(), tmp_path, items_per_form=1,
+            split_pair_inference=True,
+        )
+    assert len(model.calls) == 2
+    assert model.calls[1]["retry_reason"] == "duplicate_answer_options"
+    assert not list(tmp_path.glob("*.docx"))

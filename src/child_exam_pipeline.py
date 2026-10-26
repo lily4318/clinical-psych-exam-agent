@@ -136,6 +136,7 @@ def _request(spec: dict[str, Any], evidence: list[dict[str, str]], number: int) 
 
 def _single_form_request(
     pair_request: dict[str, Any], form_key: str, previous_stem: str | None = None,
+    *, repair_duplicate_options: bool = False,
 ) -> dict[str, Any]:
     """Ask a small local model for ONE bounded JSON item, preserving pair planning.
 
@@ -178,6 +179,15 @@ def _single_form_request(
         request["task"] += (
             "這是乙卷，情境必須與 different_from_stem 不同；"
             "不能僅替換人名、年齡或數字，但需考相同核心概念。"
+        )
+    if repair_duplicate_options:
+        # A single bounded regeneration, never an automatic clinical edit.
+        request["retry_reason"] = "duplicate_answer_options"
+        request["task"] += (
+            "前次輸出的四個選項出現重複，已被程式拒絕。請重新產生完整 item。"
+            "A、B、C、D 必須是四個具體且不同的臨床判斷或處置，"
+            "不得只更換標籤、空白或同義詞；各選項解析也須對應新選項。"
+            "正解、題幹及解析仍須嚴格受到提供的來源支持。"
         )
     return request
 
@@ -395,23 +405,39 @@ def generate_child_parallel_docx(
             allowed = {source["source_id"] for source in request["source_context"]}
             for key, index in (("form_a", 0), ("form_b", 1)):
                 previous = result["form_a"]["stem"] if key == "form_b" else None
-                single = callback(_single_form_request(request, key, previous))
-                if not isinstance(single, dict) or single.get("source_insufficient"):
-                    raise ValueError(
-                        f"{spec['pair_id']} {key}: model could not supply a valid item."
+                # Retry once ONLY for otherwise valid items whose substantive
+                # A-D options duplicate each other. No fallback or repair is
+                # allowed for missing evidence, sources, rationales or metadata.
+                for attempt in range(2):
+                    single = callback(_single_form_request(
+                        request, key, previous,
+                        repair_duplicate_options=(attempt == 1),
+                    ))
+                    if not isinstance(single, dict) or single.get("source_insufficient"):
+                        raise ValueError(
+                            f"{spec['pair_id']} {key}: model could not supply a valid item."
+                        )
+                    if single.get("pair_id", spec["pair_id"]) != spec["pair_id"]:
+                        raise ValueError(f"{spec['pair_id']} {key}: model pair_id mismatch.")
+                    item = _with_planned_metadata(
+                        single.get("item"), spec, request["forms"][index]
                     )
-                if single.get("pair_id", spec["pair_id"]) != spec["pair_id"]:
-                    raise ValueError(f"{spec['pair_id']} {key}: model pair_id mismatch.")
-                item = _with_planned_metadata(
-                    single.get("item"), spec, request["forms"][index]
-                )
-                failures = _check_item(
-                    item, spec, request["forms"][index], allowed
-                )
-                if failures:
-                    raise ValueError(
-                        f"{spec['pair_id']} {key}: " + "; ".join(failures)
+                    failures = _check_item(
+                        item, spec, request["forms"][index], allowed
                     )
+                    if not failures:
+                        break
+                    retry_duplicate = (
+                        attempt == 0 and len(failures) == 1
+                        and failures[0].startswith(
+                            "Options must be substantial and pairwise distinct "
+                        )
+                        and "invalid=none;" in failures[0]
+                    )
+                    if not retry_duplicate:
+                        raise ValueError(
+                            f"{spec['pair_id']} {key}: " + "; ".join(failures)
+                        )
                 result[key] = item
         else:
             result = callback(request)
