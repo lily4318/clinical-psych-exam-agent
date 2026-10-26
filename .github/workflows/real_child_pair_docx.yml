@@ -1,5 +1,5 @@
 # Development-only integration test: REAL official evidence + local model + two Word files.
-# Four paired items for bounded scale-up, not clinical validation or 20-item delivery.
+# Eight paired items for bounded scale-up, not clinical validation or 20-item delivery.
 # Public standard hosted runner only; no paid API, no larger runner or model artifact.
 name: real child pair to two DOCX diagnostic
 
@@ -39,12 +39,12 @@ jobs:
           curl --silent --show-error --fail http://127.0.0.1:11434/api/tags >/dev/null
       - name: Pull free 3B diagnostic model (not a clinical quality model)
         run: docker exec clinical-exam-ollama ollama pull qwen2.5:3b
-      - name: Generate FOUR real source-grounded A/B pairs in bounded calls
+      - name: Generate EIGHT real source-grounded A/B pairs in bounded calls
         id: generate
         shell: bash
         run: |
           set -euo pipefail
-          python -m src.child_exam_pipeline --auto-evidence --items 4 --model qwen2.5:3b --timeout-seconds 300 --max-output-tokens 3072 --split-pair-inference --out "$RUNNER_TEMP/real-child-pair"
+          python -m src.child_exam_pipeline --auto-evidence --items 8 --model qwen2.5:3b --timeout-seconds 300 --max-output-tokens 3072 --split-pair-inference --out "$RUNNER_TEMP/real-child-pair"
       - name: Verify both generated DOCX files (reader layout and A-D explanations)
         id: verify
         shell: bash
@@ -54,7 +54,7 @@ jobs:
           files_a=("$RUNNER_TEMP"/real-child-pair/form_a_*.docx)
           files_b=("$RUNNER_TEMP"/real-child-pair/form_b_*.docx)
           [[ ${#files_a[@]} -eq 1 && ${#files_b[@]} -eq 1 ]] || { echo 'Expected exactly two Word files'; exit 1; }
-          python -m src.verify_external_delivery "${files_a[0]}" "${files_b[0]}" --items 4
+          python -m src.verify_external_delivery "${files_a[0]}" "${files_b[0]}" --items 8
           sha256sum "${files_a[0]}" "${files_b[0]}"
       - name: Record diagnostic result and clean up draft files
         if: always()
@@ -67,8 +67,8 @@ jobs:
             echo '## REAL clinical pair / two-DOCX integration diagnostic'
             echo 'Baseline: main d728665e626a59a08bd7587d6423909d0e14ebb4; pytest 263/263; source-only 1/1; nonclinical JSON 1/1.'
             echo "Generation: **$GENERATION_OUTCOME**; DOCX verification: **$VERIFICATION_OUTCOME**."
-            echo 'All bounded inferences and both DOCX checks must pass to claim four successful A/B pairs. A red run is evidence of a real integration failure.'
-            echo 'Model: qwen2.5:3b; two separate calls per pair (A then B), each capped at 3072 output tokens and 300-second timeout; source: live NICE HTTPS; four pairs only.'
+            echo 'All bounded inferences and both DOCX checks must pass to claim eight successful A/B pairs. A red run is evidence of a real integration failure.'
+            echo 'Model: qwen2.5:3b; two separate calls per pair (A then B), each capped at 3072 output tokens and 300-second timeout; source: live NICE HTTPS; eight pairs only.'
             echo 'No mock, no paid API, no model fine-tuning; no artifact storage or automatic publishing.'
             echo 'This does NOT establish semantic source support, clinical safety, expert validation, psychometric equivalence, 20-pair throughput, or chat download links.'
           } >> "$GITHUB_STEP_SUMMARY"
