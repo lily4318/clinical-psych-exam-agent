@@ -137,6 +137,7 @@ def _request(spec: dict[str, Any], evidence: list[dict[str, str]], number: int) 
 def _single_form_request(
     pair_request: dict[str, Any], form_key: str, previous_stem: str | None = None,
     *, repair_duplicate_options: bool = False,
+    repair_identical_stem: bool = False,
 ) -> dict[str, Any]:
     """Ask a small local model for ONE bounded JSON item, preserving pair planning.
 
@@ -179,6 +180,15 @@ def _single_form_request(
         request["task"] += (
             "這是乙卷，情境必須與 different_from_stem 不同；"
             "不能僅替換人名、年齡或數字，但需考相同核心概念。"
+        )
+    if repair_identical_stem:
+        # Regenerate the entire B item once; do not edit clinical claims.
+        request["retry_reason"] = "identical_parallel_stem"
+        request["task"] += (
+            "前次乙卷題幹與甲卷相同，請重新產生完整 item。"
+            "使用不同的臨床情境、行為表現與功能影響考查同一核心概念。"
+            "不得複製 different_from_stem 或只更換姓名與數字。"
+            "四選項、正解、逐項解析及來源仍須完整且一致。"
         )
     if repair_duplicate_options:
         # A single bounded regeneration, never an automatic clinical edit.
@@ -408,10 +418,12 @@ def generate_child_parallel_docx(
                 # Retry once ONLY for otherwise valid items whose substantive
                 # A-D options duplicate each other. No fallback or repair is
                 # allowed for missing evidence, sources, rationales or metadata.
+                retry_reason = None
                 for attempt in range(2):
                     single = callback(_single_form_request(
                         request, key, previous,
-                        repair_duplicate_options=(attempt == 1),
+                        repair_duplicate_options=(attempt == 1 and retry_reason == "duplicate_answer_options"),
+                        repair_identical_stem=(attempt == 1 and retry_reason == "identical_parallel_stem"),
                     ))
                     if not isinstance(single, dict) or single.get("source_insufficient"):
                         raise ValueError(
@@ -426,6 +438,14 @@ def generate_child_parallel_docx(
                         item, spec, request["forms"][index], allowed
                     )
                     if not failures:
+                        if (key == "form_b" and normalize_question_stem(item["stem"])
+                                == normalize_question_stem(result["form_a"]["stem"])):
+                            if attempt == 0:
+                                retry_reason = "identical_parallel_stem"
+                                continue
+                            raise ValueError(
+                                f"{spec['pair_id']}: parallel question stems are identical."
+                            )
                         break
                     retry_duplicate = (
                         attempt == 0 and len(failures) == 1
@@ -434,6 +454,9 @@ def generate_child_parallel_docx(
                         )
                         and "invalid=none;" in failures[0]
                     )
+                    if retry_duplicate:
+                        retry_reason = "duplicate_answer_options"
+                        continue
                     if not retry_duplicate:
                         raise ValueError(
                             f"{spec['pair_id']} {key}: " + "; ".join(failures)
