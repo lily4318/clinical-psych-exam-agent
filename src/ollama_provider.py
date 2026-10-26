@@ -189,6 +189,15 @@ class OllamaLocalJsonCallback:
         options = {"temperature": 0}
         if self.max_output_tokens is not None:
             options["num_predict"] = self.max_output_tokens
+        # Structured child requests already send their rules as the system
+        # message and their output contract as Ollama's JSON schema. Avoid
+        # repeating those same tokens in the user message on every CPU call.
+        # Generic JSON callers keep the original request unchanged.
+        model_request = (
+            {key: value for key, value in request.items()
+             if key not in ("system_instruction", "output_contract")}
+            if isinstance(_format_for_request(request), dict) else request
+        )
         payload = {
             "model": self.model,
             "stream": False,
@@ -202,7 +211,7 @@ class OllamaLocalJsonCallback:
                         "遵守以下結構化命題要求，只回傳一個合法 JSON object。"
                         "若臨床來源不足，請回報 source_insufficient=true，"
                         "絕不猜測或捏造引用。\n\n"
-                        + json.dumps(request, ensure_ascii=False)
+                        + json.dumps(model_request, ensure_ascii=False)
                     ),
                 },
             ],
