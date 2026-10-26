@@ -554,9 +554,12 @@ def main() -> None:
         evidence = fetch_official_guidance_evidence(blueprint["sources"], required_ids)
     else:
         evidence = json.loads(args.evidence.read_text(encoding="utf-8"))
+    generation_options = {"items_per_form": args.items, "version": args.version}
+    # Preserve the existing CLI-to-generator call contract by default.
+    if args.split_pair_inference:
+        generation_options["split_pair_inference"] = True
     result = generate_child_parallel_docx(
-        model, evidence, args.out, items_per_form=args.items, version=args.version,
-        split_pair_inference=args.split_pair_inference,
+        model, evidence, args.out, **generation_options
     )
     for form, path in result.items():
         print(f"{form}: {path}")
