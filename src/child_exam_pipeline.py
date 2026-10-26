@@ -175,11 +175,20 @@ def _single_form_request(
             "rationale_fields": ["correct", "A", "B", "C", "D"],
         },
     }
-    if previous_stem is not None:
-        request["different_from_stem"] = previous_stem
+    # Do not show the A stem to the B model: small deterministic models
+    # sometimes copy the negative example verbatim. The validator still
+    # compares both stems in Python and rejects any identical pair.
+    if previous_stem is None:
         request["task"] += (
-            "這是乙卷，情境必須與 different_from_stem 不同；"
-            "不能僅替換人名、年齡或數字，但需考相同核心概念。"
+            "甲卷採個案初次呈現困擾的視角，題幹先描述主要問題，"
+            "再考查來源支持的最佳評估或處遇判斷。"
+        )
+    else:
+        request["task"] += (
+            "乙卷採追蹤功能影響與多方資訊的視角，"
+            "改以不同決策情境考查相同核心概念；"
+            "不得沿用甲卷題幹，亦不得只更換姓名、年齡或數字。"
+            "若來源不足以支持此視角，請回報 source_insufficient=true。"
         )
     if repair_identical_stem:
         # Regenerate the entire B item once; do not edit clinical claims.
@@ -187,7 +196,7 @@ def _single_form_request(
         request["task"] += (
             "前次乙卷題幹與甲卷相同，請重新產生完整 item。"
             "使用不同的臨床情境、行為表現與功能影響考查同一核心概念。"
-            "不得複製 different_from_stem 或只更換姓名與數字。"
+            "不得沿用甲卷題幹或只更換姓名與數字。"
             "四選項、正解、逐項解析及來源仍須完整且一致。"
         )
     if repair_duplicate_options:
