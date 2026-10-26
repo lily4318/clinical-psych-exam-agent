@@ -197,10 +197,12 @@ def _single_form_request(
         )
     else:
         request["task"] += (
-            "乙卷採追蹤功能影響與多方資訊的視角，"
-            "改以不同決策情境考查相同核心概念；"
+            "乙卷應改用來源摘錄直接支持的另一臨床情境與決策角度，"
+            "可採追蹤功能影響與多方資訊的視角，但不可強制加入來源未提及的"
+            "追蹤程序、量表或臨床主張；也可選擇來源明示的辨識、評估或轉介情境。"
             "不得沿用甲卷題幹，亦不得只更換姓名、年齡或數字。"
-            "若來源不足以支持此視角，請回報 source_insufficient=true。"
+            "若來源不足以支持另一個具單一最佳答案的安全情境，"
+            "請回報 source_insufficient=true，絕不可捏造。"
         )
     if repair_identical_stem:
         # Regenerate the entire B item once; do not edit clinical claims.

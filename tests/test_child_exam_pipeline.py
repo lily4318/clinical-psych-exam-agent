@@ -832,3 +832,26 @@ def test_split_multisource_prompt_whitelists_only_supplied_evidence_ids():
         assert single["source_context"] == context
         assert single["output_contract"]["required"] == ["item"]
         assert "source_insufficient=true" in single["task"]
+
+
+def test_b_form_scenario_must_follow_evidence_not_force_followup():
+    """Regression for P04-B live refusal: no unsupported follow-up requirement."""
+    from src.child_exam_pipeline import _request, _single_form_request
+    from src.domain_blueprints import build_child_pair_specs
+
+    spec = build_child_pair_specs(8)[3]
+    assert spec["category"] == "ASSESS"
+    context = [
+        {"source_id": sid, "excerpt": f"Synthetic source excerpt {sid}."}
+        for sid in spec["source_ids"]
+    ]
+    pair = _request(spec, context, 4)
+    request = _single_form_request(pair, "form_b", previous_stem="synthetic stem")
+    task = request["task"]
+    assert "可採追蹤功能影響" in task
+    assert "不可強制加入來源未提及" in task
+    assert "來源明示的辨識、評估或轉介情境" in task
+    assert "若來源不足以支持另一個具單一最佳答案的安全情境" in task
+    assert "source_insufficient=true" in task
+    assert request["source_context"] == context
+    assert request["allowed_source_ids"] == sorted(spec["source_ids"])
