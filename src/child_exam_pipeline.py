@@ -134,6 +134,53 @@ def _request(spec: dict[str, Any], evidence: list[dict[str, str]], number: int) 
     }
 
 
+def _single_form_request(
+    pair_request: dict[str, Any], form_key: str, previous_stem: str | None = None,
+) -> dict[str, Any]:
+    """Ask a small local model for ONE bounded JSON item, preserving pair planning.
+
+    Only source IDs and excerpts are sent to the model; full provenance was
+    already preflighted and remains in the deterministic export catalog.
+    """
+    slot = pair_request["forms"][0 if form_key == "form_a" else 1]
+    request = {
+        "system_instruction": (
+            "你是臺灣臨床心理師國考兒童／青少年領域命題 Agent。"
+            "考生是臨床心理師。只產生一題四選一、單一最佳答案的草稿。"
+            "只根據所附官方來源原文；不足時回傳 source_insufficient=true，"
+            "不得編造診斷、藥理、答案或引用，不得自稱專家核可。"
+            "僅回傳合法 JSON object，不要輸出說明文字。"
+        ),
+        "task": (
+            "依照配對考點只產生本卷一題，請回傳 {item: {...}}。"
+            "item 必須含 stem、options(A,B,C,D)、correct_answer、"
+            "rationale(correct,A,B,C,D)、sources(來源ID陣列)。"
+            "每個選項解析須各自具體說明正誤，文字精簡但不能省略。"
+            "答案位置必須符合 form.target_answer_position；"
+            "來源不足請回報 source_insufficient=true。"
+            "不要輸出題號、卷別、難度、核可狀態等程式可填入的欄位。"
+        ),
+        "pair_spec": pair_request["pair_spec"],
+        "form": slot,
+        "source_context": [
+            {"source_id": source["source_id"], "excerpt": source["excerpt"]}
+            for source in pair_request["source_context"]
+        ],
+        "output_contract": {
+            "required": ["item"],
+            "item_fields": ["stem", "options", "correct_answer", "rationale", "sources"],
+            "rationale_fields": ["correct", "A", "B", "C", "D"],
+        },
+    }
+    if previous_stem is not None:
+        request["different_from_stem"] = previous_stem
+        request["task"] += (
+            "這是乙卷，情境必須與 different_from_stem 不同；"
+            "不能僅替換人名、年齡或數字，但需考相同核心概念。"
+        )
+    return request
+
+
 def _with_planned_metadata(
     item: Any, spec: dict[str, Any], expected: dict[str, str],
 ) -> Any:
@@ -283,6 +330,7 @@ def generate_child_parallel_docx(
     *,
     items_per_form: int = 20,
     version: str = DRAFT_VERSION,
+    split_pair_inference: bool = False,
 ) -> dict[str, Path]:
     """One explicit generation pass; fail closed before writing either Word file.
 
@@ -324,12 +372,38 @@ def generate_child_parallel_docx(
     seen_stems: dict[str, tuple[str, str]] = {}
     for number, spec in enumerate(specs, start=1):
         request = _request(spec, contexts[spec["pair_id"]], number)
-        result = callback(request)
-        if not isinstance(result, dict) or result.get("source_insufficient"):
-            raise ValueError(f"{spec['pair_id']}: model could not supply a valid pair.")
+        if split_pair_inference:
+            # Two smaller local inferences instead of one truncated two-item
+            # response. Validate A before spending another inference on B.
+            result = {}
+            allowed = {source["source_id"] for source in request["source_context"]}
+            for key, index in (("form_a", 0), ("form_b", 1)):
+                previous = result["form_a"]["stem"] if key == "form_b" else None
+                single = callback(_single_form_request(request, key, previous))
+                if not isinstance(single, dict) or single.get("source_insufficient"):
+                    raise ValueError(
+                        f"{spec['pair_id']} {key}: model could not supply a valid item."
+                    )
+                if single.get("pair_id", spec["pair_id"]) != spec["pair_id"]:
+                    raise ValueError(f"{spec['pair_id']} {key}: model pair_id mismatch.")
+                item = _with_planned_metadata(
+                    single.get("item"), spec, request["forms"][index]
+                )
+                failures = _check_item(
+                    item, spec, request["forms"][index], allowed
+                )
+                if failures:
+                    raise ValueError(
+                        f"{spec['pair_id']} {key}: " + "; ".join(failures)
+                    )
+                result[key] = item
+        else:
+            result = callback(request)
+            if not isinstance(result, dict) or result.get("source_insufficient"):
+                raise ValueError(f"{spec['pair_id']}: model could not supply a valid pair.")
 
-        if result.get("pair_id", spec["pair_id"]) != spec["pair_id"]:
-            raise ValueError(f"{spec['pair_id']}: model pair_id mismatch.")
+            if result.get("pair_id", spec["pair_id"]) != spec["pair_id"]:
+                raise ValueError(f"{spec['pair_id']}: model pair_id mismatch.")
 
         allowed = {source["source_id"] for source in request["source_context"]}
         first = _with_planned_metadata(result.get("form_a"), spec, request["forms"][0])
@@ -435,6 +509,10 @@ def main() -> None:
         "--probe-local-inference", action="store_true",
         help="Run one minimal real local JSON inference; no clinical content or source fetch",
     )
+    parser.add_argument(
+        "--split-pair-inference", action="store_true",
+        help="Use two bounded local inferences per A/B pair; no partial Word publication",
+    )
     parser.add_argument("--items", type=int, default=20, help="Number of items in EACH form")
     parser.add_argument("--version", default=DRAFT_VERSION)
     parser.add_argument("--out", type=Path, default=Path("output/child-docx"))
@@ -477,7 +555,8 @@ def main() -> None:
     else:
         evidence = json.loads(args.evidence.read_text(encoding="utf-8"))
     result = generate_child_parallel_docx(
-        model, evidence, args.out, items_per_form=args.items, version=args.version
+        model, evidence, args.out, items_per_form=args.items, version=args.version,
+        split_pair_inference=args.split_pair_inference,
     )
     for form, path in result.items():
         print(f"{form}: {path}")
