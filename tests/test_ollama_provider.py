@@ -370,7 +370,7 @@ def test_structured_child_prompt_deduplicates_system_and_schema_without_losing_e
     assert payload["format"]["required"] == ["item"]
     assert payload["format"]["properties"]["item"]["properties"]["sources"]["items"]["enum"] == ["NICE-NG87"]
     user_message = payload["messages"][1]["content"]
-    serialized_request = json.loads(user_message.split("\\n\\n", 1)[1])
+    serialized_request = json.loads(user_message.split("\n\n", 1)[1])
     assert "system_instruction" not in serialized_request
     assert "output_contract" not in serialized_request
     for key in ("task", "pair_spec", "form", "source_context"):
