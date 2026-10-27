@@ -91,6 +91,16 @@ jobs:
           a=("$OUT_DIR"/form_a_*.docx)
           b=("$OUT_DIR"/form_b_*.docx)
           tag="child-unverified-draft-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          downloaded="$(mktemp -d)"
+          cleanup_on_failure() {
+            status=$?
+            rm -rf "$downloaded"
+            if [[ "$status" -ne 0 ]]; then
+              gh release delete "$tag" --yes --cleanup-tag >/dev/null 2>&1 || true
+              echo 'Draft delivery failed; partial release cleanup attempted.'
+            fi
+          }
+          trap cleanup_on_failure EXIT
           gh release create "$tag" "${a[0]}" "${b[0]}" \
             --target "$GITHUB_SHA" --draft --prerelease \
             --title "UNVERIFIED child/adolescent A+B exam (${ITEMS} per form)" \
@@ -99,10 +109,14 @@ jobs:
           if ! printf '%s' "$details" | jq -e \
             --arg a "$(basename "${a[0]}")" --arg b "$(basename "${b[0]}")" \
             '.isDraft == true and .isPrerelease == true and (.assets | length == 2) and ([.assets[] | select(.name == $a and .size > 0)] | length == 1) and ([.assets[] | select(.name == $b and .size > 0)] | length == 1)' >/dev/null; then
-            gh release delete "$tag" --yes --cleanup-tag || true
-            echo 'Draft release asset verification failed; no delivery claimed.'
+            echo 'Draft release asset metadata verification failed; no delivery claimed.'
             exit 1
           fi
+          # Re-download the remote assets to prove retrievability and byte integrity.
+          gh release download "$tag" --dir "$downloaded" --pattern '*.docx'
+          [[ "$(find "$downloaded" -maxdepth 1 -type f -name '*.docx' | wc -l)" -eq 2 ]] || exit 1
+          cmp -s "${a[0]}" "$downloaded/$(basename "${a[0]}")"
+          cmp -s "${b[0]}" "$downloaded/$(basename "${b[0]}")"
           {
             echo '## UNVERIFIED child/adolescent Word drafts — owner-visible release'
             echo "Form A and B: **${ITEMS} items each**, structurally checked."
