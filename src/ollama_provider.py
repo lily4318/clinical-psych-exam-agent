@@ -9,6 +9,9 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
+import sys
+import time
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
@@ -26,6 +29,77 @@ class _NoRedirect(HTTPRedirectHandler):
         return None
 
 
+def _format_for_request(request: dict[str, Any]) -> str | dict[str, Any]:
+    """Constrain the split single-item response, not unrelated JSON callers.
+
+    JSON mode alone guarantees syntax, not the required `item` envelope.
+    The schema is a generation hint; downstream clinical/source validators
+    remain authoritative and fail closed on malformed or insufficient output.
+    """
+    contract = request.get("output_contract")
+    slot = request.get("form")
+    contexts = request.get("source_context")
+    if not (
+        isinstance(contract, dict)
+        and contract.get("required") == ["item"]
+        and isinstance(slot, dict)
+        and slot.get("target_answer_position") in ("A", "B", "C", "D")
+        and isinstance(contexts, list)
+    ):
+        return "json"
+    source_ids = [
+        row["source_id"] for row in contexts
+        if isinstance(row, dict) and isinstance(row.get("source_id"), str)
+    ]
+    if not source_ids:
+        return "json"
+    text = {"type": "string", "minLength": 1}
+    four_texts = {
+        "type": "object",
+        # Minimum answer-option length prevents one-character placeholders.
+        # Distinctness remains enforced by downstream validation.
+        "properties": {letter: {"type": "string", "minLength": 8} for letter in "ABCD"},
+        "required": list("ABCD"),
+        "additionalProperties": False,
+    }
+    rationale = {
+        "type": "object",
+        "properties": {"correct": text, **{letter: text for letter in "ABCD"}},
+        "required": ["correct", *"ABCD"],
+        "additionalProperties": False,
+    }
+    return {
+        "type": "object",
+        "properties": {
+            "item": {
+                "type": "object",
+                "properties": {
+                    "stem": text,
+                    "options": four_texts,
+                    "correct_answer": {
+                        "type": "string",
+                        "enum": [slot["target_answer_position"]],
+                    },
+                    "rationale": rationale,
+                    "sources": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": sorted(set(source_ids))},
+                        "minItems": 1,
+                        "uniqueItems": True,
+                    },
+                },
+                "required": [
+                    "stem", "options", "correct_answer", "rationale", "sources",
+                ],
+                "additionalProperties": False,
+            },
+            "source_insufficient": {"type": "boolean"},
+        },
+        "required": ["item"],
+        "additionalProperties": False,
+    }
+
+
 class OllamaLocalJsonCallback:
     """Bridge existing structured generation requests to local Ollama chat.
 
@@ -33,7 +107,10 @@ class OllamaLocalJsonCallback:
     source validation, clinical review and Word export remain separate gates.
     """
 
-    def __init__(self, *, model: str | None = None, timeout_seconds: float = 180):
+    def __init__(
+        self, *, model: str | None = None, timeout_seconds: float = 180,
+        max_output_tokens: int | None = None,
+    ):
         selected = model if model is not None else os.getenv("OLLAMA_MODEL", "")
         if not isinstance(selected, str) or not selected.strip():
             raise RuntimeError(
@@ -51,8 +128,15 @@ class OllamaLocalJsonCallback:
             or not 1 <= timeout_seconds <= 600
         ):
             raise ValueError("timeout_seconds must be between 1 and 600.")
+        if max_output_tokens is not None and (
+            isinstance(max_output_tokens, bool)
+            or not isinstance(max_output_tokens, int)
+            or not 1 <= max_output_tokens <= 4096
+        ):
+            raise ValueError("max_output_tokens must be an integer between 1 and 4096.")
         self.model = selected.strip()
         self.timeout_seconds = float(timeout_seconds)
+        self.max_output_tokens = max_output_tokens
 
     def check_ready(self) -> str:
         """Confirm this exact model is already installed locally; never pull it.
@@ -102,11 +186,23 @@ class OllamaLocalJsonCallback:
         if not isinstance(system, str) or not system.strip():
             raise ValueError("Generation request requires system_instruction.")
 
+        options = {"temperature": 0}
+        if self.max_output_tokens is not None:
+            options["num_predict"] = self.max_output_tokens
+        # Structured child requests already send their rules as the system
+        # message and their output contract as Ollama's JSON schema. Avoid
+        # repeating those same tokens in the user message on every CPU call.
+        # Generic JSON callers keep the original request unchanged.
+        model_request = (
+            {key: value for key, value in request.items()
+             if key not in ("system_instruction", "output_contract")}
+            if isinstance(_format_for_request(request), dict) else request
+        )
         payload = {
             "model": self.model,
             "stream": False,
-            "format": "json",
-            "options": {"temperature": 0},
+            "format": _format_for_request(request),
+            "options": options,
             "messages": [
                 {"role": "system", "content": system},
                 {
@@ -115,7 +211,7 @@ class OllamaLocalJsonCallback:
                         "遵守以下結構化命題要求，只回傳一個合法 JSON object。"
                         "若臨床來源不足，請回報 source_insufficient=true，"
                         "絕不猜測或捏造引用。\n\n"
-                        + json.dumps(request, ensure_ascii=False)
+                        + json.dumps(model_request, ensure_ascii=False)
                     ),
                 },
             ],
@@ -130,6 +226,21 @@ class OllamaLocalJsonCallback:
         # Reject redirects during inference as well as readiness checks.
         # Otherwise a local HTTP redirect could forward the clinical prompt
         # to an external service despite the fixed loopback request URL.
+        # Emit bounded, content-free progress before a potentially long CPU call.
+        # This makes Actions cancellations diagnosable without logging prompts,
+        # clinical cases, answers, URLs or raw model output.
+        spec = request.get("pair_spec")
+        raw_pair_id = spec.get("pair_id") if isinstance(spec, dict) else None
+        pair_id = (
+            raw_pair_id if isinstance(raw_pair_id, str)
+            and re.fullmatch(r"P[0-9]{2,4}", raw_pair_id) else "unknown"
+        )
+        form = request.get("form")
+        raw_form = form.get("form") if isinstance(form, dict) else None
+        form_code = "A" if raw_form == "甲卷" else "B" if raw_form == "乙卷" else "-"
+        started = time.monotonic()
+        print(f"[ollama] start pair={pair_id} form={form_code}",
+              file=sys.stderr, flush=True)
         opener = build_opener(ProxyHandler({}), _NoRedirect())
         try:
             with opener.open(http_request, timeout=self.timeout_seconds) as response:
@@ -162,17 +273,45 @@ class OllamaLocalJsonCallback:
             raise RuntimeError("Local Ollama returned an empty or oversized response.")
         try:
             envelope = json.loads(raw)
-            if not isinstance(envelope, dict):
-                raise ValueError("response envelope is not a JSON object")
-            if envelope.get("done") is not True or envelope.get("done_reason") == "length":
-                raise ValueError("incomplete response")
-            message = envelope.get("message")
-            if not isinstance(message, dict) or not isinstance(message.get("content"), str):
-                raise ValueError("missing assistant message content")
+        except (json.JSONDecodeError, TypeError, ValueError) as exc:
+            raise RuntimeError(
+                "Local Ollama returned malformed response envelope JSON. "
+                "Do not export or approve the resulting questions."
+            ) from exc
+        if not isinstance(envelope, dict):
+            raise RuntimeError("Local Ollama response envelope is not a JSON object.")
+
+        # Distinguish output-cap exhaustion from malformed model JSON. Report
+        # only safe numeric usage metadata, never clinical prompt/response text.
+        if envelope.get("done_reason") == "length":
+            def count(name: str) -> str:
+                value = envelope.get(name)
+                return str(value) if type(value) is int and value >= 0 else "unknown"
+
+            cap = self.max_output_tokens if self.max_output_tokens is not None else "unset"
+            raise RuntimeError(
+                "Local Ollama returned incomplete JSON: output truncated "
+                f"(done_reason=length, eval_count={count('eval_count')}, "
+                f"prompt_eval_count={count('prompt_eval_count')}, "
+                f"max_output_tokens={cap}). "
+                "Do not export or approve the resulting questions."
+            )
+        if envelope.get("done") is not True:
+            raise RuntimeError(
+                "Local Ollama returned an incomplete response (done was not true). "
+                "Do not export or approve the resulting questions."
+            )
+        message = envelope.get("message")
+        if not isinstance(message, dict) or not isinstance(message.get("content"), str):
+            raise RuntimeError(
+                "Local Ollama response is missing assistant message content. "
+                "Do not export or approve the resulting questions."
+            )
+        try:
             result = json.loads(message["content"])
         except (json.JSONDecodeError, TypeError, ValueError) as exc:
             raise RuntimeError(
-                "Local Ollama returned malformed or incomplete structured JSON. "
+                "Local Ollama completed inference but generated malformed JSON. "
                 "Do not export or approve the resulting questions."
             ) from exc
 
@@ -183,4 +322,17 @@ class OllamaLocalJsonCallback:
                 "Local model reported source_insufficient; generation stopped. "
                 "Verify source text before generating clinical questions."
             )
+        # Ollama token counts are transport telemetry, not a quality score.
+        # Never trust untyped or negative usage fields from the response.
+        def safe_count(field: str) -> str:
+            value = envelope.get(field)
+            return str(value) if type(value) is int and value >= 0 else "unknown"
+
+        print(
+            f"[ollama] complete pair={pair_id} form={form_code} "
+            f"elapsed_s={time.monotonic() - started:.1f} "
+            f"prompt_tokens={safe_count('prompt_eval_count')} "
+            f"output_tokens={safe_count('eval_count')}",
+            file=sys.stderr, flush=True,
+        )
         return result

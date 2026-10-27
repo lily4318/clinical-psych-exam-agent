@@ -135,6 +135,38 @@ def test_redirected_final_url_is_rejected(monkeypatch):
         fetch.fetch_official_guidance_evidence(sources(), {"NICE-NG87"})
 
 
+def test_transient_https_timeout_retries_only_once(monkeypatch):
+    class FlakyOpener(FakeOpener):
+        def open(self, request, timeout):
+            self.calls.append((request.full_url, timeout))
+            if len(self.calls) == 1:
+                raise TimeoutError("transient read timeout")
+            return Response(request.full_url, self.body, self.content_type, self.final_url)
+
+    fake = FlakyOpener(html_page())
+    set_fake_opener(monkeypatch, fake)
+    evidence = fetch.fetch_official_guidance_evidence(sources(), {"NICE-NG87"})
+    assert len(fake.calls) == 2
+    assert all(call == (sources()["NICE-NG87"]["url"], 20) for call in fake.calls)
+    assert evidence["NICE-NG87"]["verification_status"] == "retrieved_excerpt_not_semantically_verified"
+
+
+def test_persistent_timeout_fails_closed_after_two_attempts(monkeypatch):
+    fake = FakeOpener(b"", error=TimeoutError("read timeout"))
+    set_fake_opener(monkeypatch, fake)
+    with pytest.raises(RuntimeError, match="No model call or exam output"):
+        fetch.fetch_official_guidance_evidence(sources(), {"NICE-NG87"})
+    assert len(fake.calls) == 2
+
+
+def test_non_timeout_network_error_never_retries(monkeypatch):
+    fake = FakeOpener(b"", error=URLError("offline"))
+    set_fake_opener(monkeypatch, fake)
+    with pytest.raises(RuntimeError, match="could not fetch"):
+        fetch.fetch_official_guidance_evidence(sources(), {"NICE-NG87"})
+    assert len(fake.calls) == 1
+
+
 def test_source_network_error_stops_generation(monkeypatch):
     set_fake_opener(monkeypatch, FakeOpener(b"", error=URLError("offline")))
     with pytest.raises(RuntimeError, match="could not fetch"):
@@ -226,3 +258,33 @@ def test_auto_evidence_failure_aborts_before_generation_after_readiness(monkeypa
     with pytest.raises(RuntimeError, match="offline"):
         pipeline.main()
     assert not list(tmp_path.glob("*.docx"))
+
+
+@pytest.mark.parametrize("source_id,heading,first_item", [
+    ("NICE-NG87", "1.3 Diagnosis", "1.3.1"),
+    ("NICE-CG128", "1.5 Autism diagnostic assessment for children and young people", "1.5.1"),
+    ("NICE-NG11", "1.5 Assessment of behaviour that challenges", "1.5.1"),
+])
+def test_late_assessment_guidance_is_preserved_in_bounded_excerpt(
+    monkeypatch, source_id, heading, first_item
+):
+    """Regression: P04 assessment evidence must not be lost after 8k of intro."""
+    filler = "General background for guideline readers. " * 350
+    relevant = (
+        "Use observer reports, developmental history and information from "
+        "multiple settings to inform the assessment decision. "
+    ) * 14
+    body = (
+        "<html><main><h2>Recommendations</h2>"
+        f"<p>{filler}</p><h2>{heading}</h2>"
+        f"<h3>{first_item}</h3><p>{relevant}</p></main></html>"
+    ).encode("utf-8")
+    set_fake_opener(monkeypatch, FakeOpener(body))
+    evidence = fetch.fetch_official_guidance_evidence(sources(), {source_id})
+    passage = evidence[source_id]["passage"]
+    assert len(passage) <= fetch._MAX_EXCERPT_CHARS
+    assert passage.startswith("Recommendations")
+    assert heading in passage
+    assert "Use observer reports" in passage
+    assert "[...]" in passage
+    assert evidence[source_id]["verification_status"] == "retrieved_excerpt_not_semantically_verified"

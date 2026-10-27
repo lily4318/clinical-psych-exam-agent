@@ -116,19 +116,147 @@ def _request(spec: dict[str, Any], evidence: list[dict[str, str]], number: int) 
             "兩題皆須附逐項 A-D 解析與具體正解依據。",
             "sources 只能列出本次 source_context 的 source_id。",
             "來源摘錄不足時停止；不可以虛構、猜測或引用純網址當作證據。",
+            "僅生成題幹、四選項、正確答案、正解及A-D逐項解析、引用來源ID。",
+            "題號、卷別、配對ID、領域、難度、認知層次及草稿標示由程式填入，不要重複輸出。",
             "原始摘錄存在不代表臨床主張已通過專家驗證。",
             "所有新題均為草稿，絕不可標成正式核可。",
         ],
         "output_contract": {
             "type": "object",
-            "required": ["pair_id", "form_a", "form_b"],
-            "item_fields": [
-                "item_id", "form", "pair_id", "stem", "options", "correct_answer",
-                "category", "subtopic", "difficulty", "cognitive_level",
-                "rationale", "sources", "quality_status",
+            "required": ["form_a", "form_b"],
+            "item_fields": ["stem", "options", "correct_answer", "rationale", "sources"],
+            "rationale_fields": ["correct", "A", "B", "C", "D"],
+            "omit_deterministic_metadata": [
+                "item_id", "form", "pair_id", "category", "subtopic",
+                "difficulty", "cognitive_level", "quality_status",
             ],
         },
     }
+
+
+def _single_form_request(
+    pair_request: dict[str, Any], form_key: str, previous_stem: str | None = None,
+    *, repair_duplicate_options: bool = False,
+    repair_identical_stem: bool = False,
+    repair_repeated_stem: bool = False,
+) -> dict[str, Any]:
+    """Ask a small local model for ONE bounded JSON item, preserving pair planning.
+
+    Only source IDs and excerpts are sent to the model; full provenance was
+    already preflighted and remains in the deterministic export catalog.
+    """
+    slot = pair_request["forms"][0 if form_key == "form_a" else 1]
+    request = {
+        "system_instruction": (
+            "你是臺灣臨床心理師國考兒童／青少年領域命題 Agent。"
+            "考生是臨床心理師。只產生一題四選一、單一最佳答案的草稿。"
+            "只根據所附官方來源原文；不足時回傳 source_insufficient=true，"
+            "不得編造診斷、藥理、答案或引用，不得自稱專家核可。"
+            "僅回傳合法 JSON object，不要輸出說明文字。"
+        ),
+        "task": (
+            "依照配對考點只產生本卷一題，請回傳 {item: {...}}。"
+            "item 必須含 stem、options(A,B,C,D)、correct_answer、"
+            "rationale(correct,A,B,C,D)、sources(來源ID陣列)。"
+            "四個選項必須各自具體、彼此不同，不得複製同一內容或只改標籤。"
+            "每個選項解析須各自具體說明正誤，文字精簡但不能省略。"
+            "答案位置必須符合 form.target_answer_position；"
+            "僅當所有提供的摘錄都無法支持本考點的安全命題時，才回報 source_insufficient=true；"
+            "若其中至少一份摘錄能直接支持題幹、正解與 A-D 逐項解析，"
+            "請完成 item，並省略 source_insufficient 或填 false。"
+            "不得為避免拒答而捏造來源未提及的臨床事實。"
+            "sources 陣列只能填 allowed_source_ids 中的完整 ID，"
+            "不得引用其他指引、縮寫、標題或自行產生的來源名稱；"
+            "不能確定引用是否受到摘錄支持時回報來源不足。"
+            "不要輸出題號、卷別、難度、核可狀態等程式可填入的欄位。"
+        ),
+        "pair_spec": pair_request["pair_spec"],
+        "form": slot,
+        # An explicit, pair-specific whitelist is easier for a small model to
+        # follow than extracting permitted citations from long source excerpts.
+        # This is a prompt hint only; _check_item remains the fail-closed gate.
+        "allowed_source_ids": sorted({
+            source["source_id"] for source in pair_request["source_context"]
+        }),
+        "source_context": [
+            {"source_id": source["source_id"], "excerpt": source["excerpt"]}
+            for source in pair_request["source_context"]
+        ],
+        "output_contract": {
+            "required": ["item"],
+            "item_fields": ["stem", "options", "correct_answer", "rationale", "sources"],
+            "rationale_fields": ["correct", "A", "B", "C", "D"],
+        },
+    }
+    # Do not show the A stem to the B model: small deterministic models
+    # sometimes copy the negative example verbatim. The validator still
+    # compares both stems in Python and rejects any identical pair.
+    if previous_stem is None:
+        request["task"] += (
+            "甲卷採個案初次呈現困擾的視角，題幹先描述主要問題，"
+            "再考查來源支持的最佳評估或處遇判斷。"
+        )
+    else:
+        request["task"] += (
+            "乙卷應改用來源摘錄直接支持的另一臨床情境與決策角度，"
+            "可採追蹤功能影響與多方資訊的視角，但不可強制加入來源未提及的"
+            "追蹤程序、量表或臨床主張；也可選擇來源明示的辨識、評估或轉介情境。"
+            "不得沿用甲卷題幹，亦不得只更換姓名、年齡或數字。"
+            "若來源不足以支持另一個具單一最佳答案的安全情境，"
+            "請回報 source_insufficient=true，絕不可捏造。"
+        )
+    if repair_identical_stem:
+        # Regenerate the entire B item once; do not edit clinical claims.
+        request["retry_reason"] = "identical_parallel_stem"
+        request["task"] += (
+            "前次乙卷題幹與甲卷相同，請重新產生完整 item。"
+            "使用不同的臨床情境、行為表現與功能影響考查同一核心概念。"
+            "不得沿用甲卷題幹或只更換姓名與數字。"
+            "四選項、正解、逐項解析及來源仍須完整且一致。"
+        )
+    if repair_repeated_stem:
+        # Regenerate the whole item once, never rewrite clinical content locally.
+        request["retry_reason"] = "repeated_stem_across_pairs"
+        request["task"] += (
+            "前次題幹與其他已生成題目重複，請重新產生完整 item。"
+            "使用來源摘錄直接支持的另一個臨床情境及決策角度；"
+            "不得只更換姓名、年齡、數字或重複舊題。"
+            "四選項、正解、逐項解析及來源仍須完整且一致；"
+            "來源不足時必須回報 source_insufficient=true。"
+        )
+    if repair_duplicate_options:
+        # A single bounded regeneration, never an automatic clinical edit.
+        request["retry_reason"] = "duplicate_answer_options"
+        request["task"] += (
+            "前次輸出的四個選項出現重複，已被程式拒絕。請重新產生完整 item。"
+            "A、B、C、D 必須是四個具體且不同的臨床判斷或處置，"
+            "不得只更換標籤、空白或同義詞；各選項解析也須對應新選項。"
+            "正解、題幹及解析仍須嚴格受到提供的來源支持。"
+        )
+    return request
+
+
+def _with_planned_metadata(
+    item: Any, spec: dict[str, Any], expected: dict[str, str],
+) -> Any:
+    """Fill only omitted deterministic fields; never overwrite a conflicting claim.
+
+    The normal downstream validator still rejects mismatched metadata, unsafe
+    approval claims, incomplete explanations and unsupported source IDs.
+    """
+    if not isinstance(item, dict):
+        return item
+    planned = {
+        "item_id": expected["item_id"],
+        "form": expected["form"],
+        "pair_id": spec["pair_id"],
+        "category": spec["category"],
+        "subtopic": spec["core_topic"],
+        "difficulty": spec["difficulty"],
+        "cognitive_level": spec["cognitive_level"],
+        "quality_status": "草稿",
+    }
+    return {**planned, **item}
 
 
 def _check_item(
@@ -163,9 +291,24 @@ def _check_item(
     options = item.get("options")
     if not isinstance(options, dict) or set(options) != set(LETTERS):
         errors.append("Options must contain exactly A-D.")
-    elif (not all(_substantive(options[k]) for k in LETTERS)
-          or len({options[k].strip().casefold() for k in LETTERS}) != 4):
-        errors.append("Options must be substantial and pairwise distinct.")
+    else:
+        invalid = [key for key in LETTERS if not _substantive(options[key])]
+        normalized = [
+            options[key].strip().casefold()
+            for key in LETTERS if isinstance(options[key], str)
+        ]
+        distinct = len(set(normalized))
+        if invalid or distinct != 4:
+            # Diagnose structural failure without exposing clinical answer text.
+            lengths = ",".join(
+                f"{key}:{len(options[key]) if isinstance(options[key], str) else 'nonstring'}"
+                for key in LETTERS
+            )
+            errors.append(
+                "Options must be substantial and pairwise distinct "
+                f"(invalid={','.join(invalid) or 'none'}; "
+                f"distinct={distinct}/4; lengths={lengths})."
+            )
 
     rationale = item.get("rationale")
     if not isinstance(rationale, dict) or any(
@@ -257,6 +400,7 @@ def generate_child_parallel_docx(
     *,
     items_per_form: int = 20,
     version: str = DRAFT_VERSION,
+    split_pair_inference: bool = False,
 ) -> dict[str, Path]:
     """One explicit generation pass; fail closed before writing either Word file.
 
@@ -298,15 +442,83 @@ def generate_child_parallel_docx(
     seen_stems: dict[str, tuple[str, str]] = {}
     for number, spec in enumerate(specs, start=1):
         request = _request(spec, contexts[spec["pair_id"]], number)
-        result = callback(request)
-        if not isinstance(result, dict) or result.get("source_insufficient"):
-            raise ValueError(f"{spec['pair_id']}: model could not supply a valid pair.")
+        if split_pair_inference:
+            # Two smaller local inferences instead of one truncated two-item
+            # response. Validate A before spending another inference on B.
+            result = {}
+            allowed = {source["source_id"] for source in request["source_context"]}
+            for key, index in (("form_a", 0), ("form_b", 1)):
+                previous = result["form_a"]["stem"] if key == "form_b" else None
+                # Retry once ONLY for otherwise valid items whose substantive
+                # A-D options duplicate each other. No fallback or repair is
+                # allowed for missing evidence, sources, rationales or metadata.
+                retry_reason = None
+                for attempt in range(2):
+                    single = callback(_single_form_request(
+                        request, key, previous,
+                        repair_duplicate_options=(attempt == 1 and retry_reason == "duplicate_answer_options"),
+                        repair_identical_stem=(attempt == 1 and retry_reason == "identical_parallel_stem"),
+                        repair_repeated_stem=(attempt == 1 and retry_reason == "repeated_stem_across_pairs"),
+                    ))
+                    if not isinstance(single, dict) or single.get("source_insufficient"):
+                        raise ValueError(
+                            f"{spec['pair_id']} {key}: model could not supply a valid item."
+                        )
+                    if single.get("pair_id", spec["pair_id"]) != spec["pair_id"]:
+                        raise ValueError(f"{spec['pair_id']} {key}: model pair_id mismatch.")
+                    item = _with_planned_metadata(
+                        single.get("item"), spec, request["forms"][index]
+                    )
+                    failures = _check_item(
+                        item, spec, request["forms"][index], allowed
+                    )
+                    if not failures:
+                        if (key == "form_b" and normalize_question_stem(item["stem"])
+                                == normalize_question_stem(result["form_a"]["stem"])):
+                            if attempt == 0:
+                                retry_reason = "identical_parallel_stem"
+                                continue
+                            raise ValueError(
+                                f"{spec['pair_id']}: parallel question stems are identical."
+                            )
+                        normalized = normalize_question_stem(item["stem"])
+                        if normalized in seen_stems:
+                            if attempt == 0:
+                                retry_reason = "repeated_stem_across_pairs"
+                                continue
+                            previous_form, previous_pair = seen_stems[normalized]
+                            raise ValueError(
+                                f"{spec['pair_id']}: duplicate question stem in "
+                                f"{request['forms'][index]['form']}; "
+                                f"already used by {previous_form} {previous_pair}."
+                            )
+                        break
+                    retry_duplicate = (
+                        attempt == 0 and len(failures) == 1
+                        and failures[0].startswith(
+                            "Options must be substantial and pairwise distinct "
+                        )
+                        and "invalid=none;" in failures[0]
+                    )
+                    if retry_duplicate:
+                        retry_reason = "duplicate_answer_options"
+                        continue
+                    if not retry_duplicate:
+                        raise ValueError(
+                            f"{spec['pair_id']} {key}: " + "; ".join(failures)
+                        )
+                result[key] = item
+        else:
+            result = callback(request)
+            if not isinstance(result, dict) or result.get("source_insufficient"):
+                raise ValueError(f"{spec['pair_id']}: model could not supply a valid pair.")
 
-        if result.get("pair_id") != spec["pair_id"]:
-            raise ValueError(f"{spec['pair_id']}: model pair_id mismatch.")
+            if result.get("pair_id", spec["pair_id"]) != spec["pair_id"]:
+                raise ValueError(f"{spec['pair_id']}: model pair_id mismatch.")
 
         allowed = {source["source_id"] for source in request["source_context"]}
-        first, second = result.get("form_a"), result.get("form_b")
+        first = _with_planned_metadata(result.get("form_a"), spec, request["forms"][0])
+        second = _with_planned_metadata(result.get("form_b"), spec, request["forms"][1])
         errors = []
         for label, item, expected in (
             ("甲卷", first, request["forms"][0]),
@@ -397,12 +609,20 @@ def main() -> None:
         help="Local Ollama inference timeout in seconds (1-600); default 180",
     )
     parser.add_argument(
+        "--max-output-tokens", type=int, default=None,
+        help="Optional local model output limit (1-4096 tokens); truncated JSON fails closed",
+    )
+    parser.add_argument(
         "--check-local-model", action="store_true",
         help="Only check that local Ollama and the named model are ready; no generation or source fetch",
     )
     parser.add_argument(
         "--probe-local-inference", action="store_true",
         help="Run one minimal real local JSON inference; no clinical content or source fetch",
+    )
+    parser.add_argument(
+        "--split-pair-inference", action="store_true",
+        help="Use two bounded local inferences per A/B pair; no partial Word publication",
     )
     parser.add_argument("--items", type=int, default=20, help="Number of items in EACH form")
     parser.add_argument("--version", default=DRAFT_VERSION)
@@ -424,6 +644,8 @@ def main() -> None:
     model_options = {"model": args.model}
     if args.timeout_seconds is not None:
         model_options["timeout_seconds"] = args.timeout_seconds
+    if args.max_output_tokens is not None:
+        model_options["max_output_tokens"] = args.max_output_tokens
     model = OllamaLocalJsonCallback(**model_options)
     model.check_ready()
     if args.check_local_model:
@@ -443,8 +665,12 @@ def main() -> None:
         evidence = fetch_official_guidance_evidence(blueprint["sources"], required_ids)
     else:
         evidence = json.loads(args.evidence.read_text(encoding="utf-8"))
+    generation_options = {"items_per_form": args.items, "version": args.version}
+    # Preserve the existing CLI-to-generator call contract by default.
+    if args.split_pair_inference:
+        generation_options["split_pair_inference"] = True
     result = generate_child_parallel_docx(
-        model, evidence, args.out, items_per_form=args.items, version=args.version
+        model, evidence, args.out, **generation_options
     )
     for form, path in result.items():
         print(f"{form}: {path}")

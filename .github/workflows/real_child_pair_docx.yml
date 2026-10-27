@@ -1,0 +1,108 @@
+# Development-only integration test: REAL official evidence + local model + two Word files.
+# Eight paired items for a bounded two-DOCX scale diagnostic; not 20-item validation.
+# Public standard hosted runner only; no paid API, no larger runner or model artifact.
+name: real child pair to two DOCX diagnostic
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/real_child_pair_docx.yml
+      - src/ollama_provider.py
+      - src/child_exam_pipeline.py
+      - src/child_source_fetch.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Cancel stale CPU-only diagnostics for the same PR/ref when a newer commit arrives.
+# This does not cancel a different PR or a separate branch's test run.
+concurrency:
+  group: real-child-pair-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  real-child-pair:
+    if: ${{ github.event.repository.private == false && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing Python dependencies
+        run: python -m pip install -e .
+      - name: Start CPU-only local Ollama
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The 2026-10-27 live P04-B run reported 2050 prompt tokens, a
+          # possible 4k-context overflow/truncation signature. Keep this
+          # bounded to 8k on the free CPU runner; no paid inference.
+          docker run -d --rm --name clinical-exam-ollama -e OLLAMA_CONTEXT_LENGTH=8192 -p 127.0.0.1:11434:11434 ollama/ollama:latest
+          for i in $(seq 1 40); do
+            if curl --silent --fail http://127.0.0.1:11434/api/tags >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --silent --show-error --fail http://127.0.0.1:11434/api/tags >/dev/null
+      - name: Pull free 3B diagnostic model (not a clinical quality model)
+        run: docker exec clinical-exam-ollama ollama pull qwen2.5:3b
+      - name: Generate EIGHT real source-grounded A/B pairs in bounded calls
+        id: generate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m src.child_exam_pipeline --auto-evidence --items 8 --model qwen2.5:3b --timeout-seconds 300 --max-output-tokens 3072 --split-pair-inference --out "$RUNNER_TEMP/real-child-pair"
+      # The real 2026-10-26 run reached P03 then received HTTP 500 from
+      # Ollama. Never assume that a pulled model is missing or that pytest failed.
+      # Capture bounded, content-free resource signals; do not print prompts,
+      # clinical passages, model responses, or raw Ollama server logs.
+      - name: Diagnose Ollama HTTP failure without clinical text
+        if: ${{ failure() && steps.generate.outcome == 'failure' }}
+        shell: bash
+        run: |
+          set +e
+          echo "ollama_container_running=$(docker inspect -f '{{.State.Running}}' clinical-exam-ollama 2>/dev/null || echo unknown)"
+          echo "ollama_container_oom_killed=$(docker inspect -f '{{.State.OOMKilled}}' clinical-exam-ollama 2>/dev/null || echo unknown)"
+          echo "host_memory_available_kib=$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)"
+          logs="$(docker logs --tail 200 clinical-exam-ollama 2>&1)"
+          if printf '%s' "$logs" | grep -Eiq '(out of memory|oom.?kill|failed to allocate|cannot allocate memory|memory required)'; then
+            echo 'ollama_log_memory_signal=true'
+          else
+            echo 'ollama_log_memory_signal=false_or_not_visible'
+          fi
+          if printf '%s' "$logs" | grep -Eiq '(runner.*exited|runner.*crashed|signal: killed)'; then
+            echo 'ollama_log_runner_exit_signal=true'
+          else
+            echo 'ollama_log_runner_exit_signal=false_or_not_visible'
+          fi
+          unset logs
+      - name: Verify both generated DOCX files (reader layout and A-D explanations)
+        id: verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files_a=("$RUNNER_TEMP"/real-child-pair/form_a_*.docx)
+          files_b=("$RUNNER_TEMP"/real-child-pair/form_b_*.docx)
+          [[ ${#files_a[@]} -eq 1 && ${#files_b[@]} -eq 1 ]] || { echo 'Expected exactly two Word files'; exit 1; }
+          python -m src.verify_external_delivery "${files_a[0]}" "${files_b[0]}" --items 8
+          sha256sum "${files_a[0]}" "${files_b[0]}"
+      - name: Record diagnostic result and clean up draft files
+        if: always()
+        shell: bash
+        env:
+          GENERATION_OUTCOME: ${{ steps.generate.outcome }}
+          VERIFICATION_OUTCOME: ${{ steps.verify.outcome }}
+        run: |
+          {
+            echo '## REAL clinical pair / two-DOCX integration diagnostic'
+            echo 'Baseline: main d728665e626a59a08bd7587d6423909d0e14ebb4; pytest 263/263; source-only 1/1; nonclinical JSON 1/1.'
+            echo "Generation: **$GENERATION_OUTCOME**; DOCX verification: **$VERIFICATION_OUTCOME**."
+            echo 'All bounded inferences and both DOCX checks must pass to claim eight successful A/B pairs. A red run is evidence of a real integration failure.'
+            echo 'Model: qwen2.5:3b; two separate calls per pair (A then B), each capped at 3072 output tokens and 300-second timeout; source: live NICE HTTPS; eight pairs only.'
+            echo 'No mock, no paid API, no model fine-tuning; no artifact storage or automatic publishing.'
+            echo 'This does NOT establish semantic source support, clinical safety, expert validation, psychometric equivalence, 20-pair throughput, or chat download links.'
+          } >> "$GITHUB_STEP_SUMMARY"
+          rm -rf "$RUNNER_TEMP/real-child-pair"

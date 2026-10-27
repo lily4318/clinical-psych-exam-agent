@@ -19,6 +19,12 @@ from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_ope
 _MAX_PAGE_BYTES = 3 * 1024 * 1024
 _MAX_EXCERPT_CHARS = 8000
 _MIN_EXCERPT_CHARS = 400
+_ASSESSMENT_SECTIONS = {
+    # Original first-8k excerpts may omit later assessment recommendations.
+    "NICE-NG87": (r"\b1\.3\s+Diagnosis\b", r"\b1\.3\.1\b"),
+    "NICE-CG128": (r"\b1\.5\s+Autism diagnostic assessment\b", r"\b1\.5\.1\b"),
+    "NICE-NG11": (r"\b1\.5\s+Assessment of behaviour that challenges\b", r"\b1\.5\.1\b"),
+}
 _ALLOWED_HOST = "www.nice.org.uk"
 _ALLOWED_PATH = re.compile(r"^/guidance/(ng|cg)[0-9]+/chapter/", re.IGNORECASE)
 
@@ -113,7 +119,32 @@ def _extract_recommendations(body: bytes, *, source_id: str) -> str:
         raise ValueError(f"{source_id}: official recommendations section not identified.")
     index = re.search(r"\bRecommendations\b", text, flags=re.IGNORECASE)
     assert index is not None
-    excerpt = text[index.start():index.start() + _MAX_EXCERPT_CHARS]
+    recommendations = text[index.start():]
+    excerpt = recommendations[:_MAX_EXCERPT_CHARS]
+    # Preserve original diagnosis/assessment guidance even when the introductory
+    # material pushes it beyond the first 8,000 characters. Mark the omission.
+    # This is a bounded excerpt, not claim-level semantic verification.
+    section = _ASSESSMENT_SECTIONS.get(source_id)
+    if section:
+        heading, first_recommendation = section
+        candidates = [
+            match for match in re.finditer(heading, recommendations, re.IGNORECASE)
+            if re.search(
+                first_recommendation,
+                recommendations[match.end():match.end() + 700],
+                re.IGNORECASE,
+            )
+        ]
+        if candidates:
+            offset = candidates[-1].start()
+            prefix_chars = 1400
+            separator = " [...] "
+            if offset > _MAX_EXCERPT_CHARS - prefix_chars:
+                tail_chars = _MAX_EXCERPT_CHARS - prefix_chars - len(separator)
+                excerpt = (
+                    recommendations[:prefix_chars] + separator
+                    + recommendations[offset:offset + tail_chars]
+                )
     if len(excerpt) < _MIN_EXCERPT_CHARS:
         raise ValueError(f"{source_id}: recommendations excerpt is too short.")
     return excerpt
@@ -125,7 +156,7 @@ def fetch_official_guidance_evidence(
     *,
     timeout_seconds: float = 20,
 ) -> dict[str, dict[str, str]]:
-    """Fetch each required clinical source once; fail on any network/HTML error.
+    """Fetch each required clinical source with at most one timeout retry.
 
     The caller supplies the *already validated* domain blueprint's source
     catalog. User-supplied URLs never determine the destination.
@@ -151,20 +182,25 @@ def fetch_official_guidance_evidence(
             "User-Agent": "ClinicalPsychExamAgent/0.2 (public-guideline-fetch)",
             "Accept": "text/html",
         })
-        try:
-            with opener.open(request, timeout=timeout_seconds) as response:
-                mime = response.headers.get("Content-Type", "")
-                if "text/html" not in mime.lower():
-                    raise ValueError(f"{source_id}: unexpected content type {mime!r}.")
-                # Redirects are disabled; an unexpected final URL is also rejected.
-                if response.geturl() != url:
-                    raise ValueError(f"{source_id}: unexpected final URL.")
-                raw = response.read(_MAX_PAGE_BYTES + 1)
-        except (HTTPError, URLError, TimeoutError, OSError) as exc:
-            raise RuntimeError(
-                f"{source_id}: could not fetch the official guideline. "
-                "No model call or exam output is permitted without evidence."
-            ) from exc
+        # Retry only a transient HTTPS timeout once; all other failures remain fatal.
+        for attempt in range(2):
+            try:
+                with opener.open(request, timeout=timeout_seconds) as response:
+                    mime = response.headers.get("Content-Type", "")
+                    if "text/html" not in mime.lower():
+                        raise ValueError(f"{source_id}: unexpected content type {mime!r}.")
+                    # Redirects are disabled; an unexpected final URL is also rejected.
+                    if response.geturl() != url:
+                        raise ValueError(f"{source_id}: unexpected final URL.")
+                    raw = response.read(_MAX_PAGE_BYTES + 1)
+                break
+            except (HTTPError, URLError, TimeoutError, OSError) as exc:
+                if isinstance(exc, TimeoutError) and attempt == 0:
+                    continue
+                raise RuntimeError(
+                    f"{source_id}: could not fetch the official guideline. "
+                    "No model call or exam output is permitted without evidence."
+                ) from exc
 
         if len(raw) > _MAX_PAGE_BYTES:
             raise ValueError(f"{source_id}: official page exceeds the size limit.")
