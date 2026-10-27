@@ -45,6 +45,12 @@ def test_manual_draft_delivery_is_fail_closed_and_uses_no_actions_artifacts():
     assert "--draft --prerelease" in publish
     assert "steps.verify.outcome == 'success'" in steps[publish_idx]["if"]
     assert "gh release view" in publish
+    # Verify remotely retrievable bytes, not just names/sizes from release metadata.
+    assert "gh release download" in publish
+    assert publish.count("cmp -s") == 2
+    assert publish.index("gh release view") < publish.index("gh release download")
+    assert publish.index("gh release download") < publish.index("cmp -s")
+    assert "trap cleanup_on_failure EXIT" in publish
     assert "isDraft == true" in publish
     assert "isPrerelease == true" in publish
     assert "gh release delete" in publish
