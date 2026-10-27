@@ -30,6 +30,15 @@ def test_manual_draft_delivery_is_fail_closed_and_uses_no_actions_artifacts():
     assert "github.ref == 'refs/heads/main'" in job["if"]
 
     steps = job["steps"]
+    # Check free runner tooling *before* spending tens of minutes on local
+    # model inference; no GitHub token is passed to this offline preflight.
+    preflight_idx = next(i for i, step in enumerate(steps) if step.get("name", "").startswith("Preflight free-runner"))
+    generation_idx = next(i for i, step in enumerate(steps) if "src.child_exam_pipeline" in step.get("run", ""))
+    assert preflight_idx < generation_idx
+    preflight = steps[preflight_idx]["run"]
+    assert "GH_TOKEN" not in steps[preflight_idx].get("env", {})
+    for command in ("docker info", "gh release create --help", "gh release download --help", "gh release delete --help"):
+        assert command in preflight
     verify_idx = next(i for i, step in enumerate(steps) if step.get("id") == "verify")
     publish_idx = next(i for i, step in enumerate(steps) if "gh release create" in step.get("run", ""))
     assert verify_idx < publish_idx
