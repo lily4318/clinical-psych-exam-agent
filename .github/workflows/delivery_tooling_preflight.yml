@@ -1,0 +1,37 @@
+# Read-only, bounded PR preflight for the manual draft Word delivery workflow.
+# This does NOT generate questions, create releases, or access repository write tokens.
+name: delivery tooling preflight (read-only)
+
+"on":
+  pull_request:
+    paths:
+      - ".github/workflows/manual_child_draft_release.yml"
+      - ".github/workflows/delivery_tooling_preflight.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Verify standard-runner tools and draft release CLI flags
+        shell: bash
+        run: |
+          set -euo pipefail
+          for tool in docker gh jq curl sha256sum cmp; do
+            command -v "$tool" >/dev/null || { echo "::error::Missing $tool"; exit 1; }
+          done
+          docker info >/dev/null
+          gh release create --help | grep -F -- '--draft' >/dev/null
+          gh release download --help | grep -F -- '--pattern' >/dev/null
+          gh release delete --help | grep -F -- '--cleanup-tag' >/dev/null
+          echo "Runner tools and release CLI flags verified without GitHub write permissions."
+      - name: Verify pinned Ollama image manifest is resolvable
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Inspect only the remote manifest: no multi-GB image pull or inference.
+          docker manifest inspect 'ollama/ollama@sha256:dea72d1e22270fe095b68fdf756d2b489d615643c5a2eaebbc5f569181e322d8' >/dev/null
+          echo "Pinned public Ollama manifest is resolvable; model execution remains untested."
