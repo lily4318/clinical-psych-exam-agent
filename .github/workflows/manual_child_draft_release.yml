@@ -34,9 +34,10 @@ jobs:
     env:
       ITEMS: ${{ inputs.items }}
       OUT_DIR: /tmp/child-draft-delivery-${{ github.run_id }}
-      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -82,6 +83,8 @@ jobs:
       - name: Publish only verified files as an owner-visible DRAFT GitHub Release
         if: ${{ success() && steps.verify.outcome == 'success' }}
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           shopt -s nullglob
