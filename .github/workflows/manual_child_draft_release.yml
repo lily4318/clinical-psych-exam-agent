@@ -33,7 +33,7 @@ jobs:
     timeout-minutes: 300
     env:
       ITEMS: ${{ inputs.items }}
-      OUT_DIR: ${{ runner.temp }}/child-draft-delivery
+      OUT_DIR: /tmp/child-draft-delivery-${{ github.run_id }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
