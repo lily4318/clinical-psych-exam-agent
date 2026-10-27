@@ -138,6 +138,7 @@ def _single_form_request(
     pair_request: dict[str, Any], form_key: str, previous_stem: str | None = None,
     *, repair_duplicate_options: bool = False,
     repair_identical_stem: bool = False,
+    repair_repeated_stem: bool = False,
 ) -> dict[str, Any]:
     """Ask a small local model for ONE bounded JSON item, preserving pair planning.
 
@@ -212,6 +213,16 @@ def _single_form_request(
             "使用不同的臨床情境、行為表現與功能影響考查同一核心概念。"
             "不得沿用甲卷題幹或只更換姓名與數字。"
             "四選項、正解、逐項解析及來源仍須完整且一致。"
+        )
+    if repair_repeated_stem:
+        # Regenerate the whole item once, never rewrite clinical content locally.
+        request["retry_reason"] = "repeated_stem_across_pairs"
+        request["task"] += (
+            "前次題幹與其他已生成題目重複，請重新產生完整 item。"
+            "使用來源摘錄直接支持的另一個臨床情境及決策角度；"
+            "不得只更換姓名、年齡、數字或重複舊題。"
+            "四選項、正解、逐項解析及來源仍須完整且一致；"
+            "來源不足時必須回報 source_insufficient=true。"
         )
     if repair_duplicate_options:
         # A single bounded regeneration, never an automatic clinical edit.
@@ -447,6 +458,7 @@ def generate_child_parallel_docx(
                         request, key, previous,
                         repair_duplicate_options=(attempt == 1 and retry_reason == "duplicate_answer_options"),
                         repair_identical_stem=(attempt == 1 and retry_reason == "identical_parallel_stem"),
+                        repair_repeated_stem=(attempt == 1 and retry_reason == "repeated_stem_across_pairs"),
                     ))
                     if not isinstance(single, dict) or single.get("source_insufficient"):
                         raise ValueError(
@@ -468,6 +480,17 @@ def generate_child_parallel_docx(
                                 continue
                             raise ValueError(
                                 f"{spec['pair_id']}: parallel question stems are identical."
+                            )
+                        normalized = normalize_question_stem(item["stem"])
+                        if normalized in seen_stems:
+                            if attempt == 0:
+                                retry_reason = "repeated_stem_across_pairs"
+                                continue
+                            previous_form, previous_pair = seen_stems[normalized]
+                            raise ValueError(
+                                f"{spec['pair_id']}: duplicate question stem in "
+                                f"{request['forms'][index]['form']}; "
+                                f"already used by {previous_form} {previous_pair}."
                             )
                         break
                     retry_duplicate = (
