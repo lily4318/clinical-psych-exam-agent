@@ -24,6 +24,10 @@ def test_manual_draft_delivery_is_fail_closed_and_uses_no_actions_artifacts():
     assert job["timeout-minutes"] <= 360
     assert "github.event_name == 'workflow_dispatch'" in job["if"]
     assert "github.repository == 'lily4318/clinical-psych-exam-agent'" in job["if"]
+    # github.actor is the original actor; triggering_actor catches non-owner reruns.
+    assert "github.actor == 'lily4318'" in job["if"]
+    assert "github.triggering_actor == 'lily4318'" in job["if"]
+    assert "github.ref == 'refs/heads/main'" in job["if"]
 
     steps = job["steps"]
     verify_idx = next(i for i, step in enumerate(steps) if step.get("id") == "verify")
