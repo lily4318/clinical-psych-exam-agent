@@ -14,7 +14,7 @@ permissions:
 jobs:
   preflight:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
       - name: Verify standard-runner tools and draft release CLI flags
         shell: bash
@@ -34,4 +34,24 @@ jobs:
           set -euo pipefail
           # Inspect only the remote manifest: no multi-GB image pull or inference.
           docker manifest inspect 'ollama/ollama@sha256:dea72d1e22270fe095b68fdf756d2b489d615643c5a2eaebbc5f569181e322d8' >/dev/null
-          echo "Pinned public Ollama manifest is resolvable; model execution remains untested."
+          echo "Pinned public Ollama manifest is resolvable."
+      - name: Start pinned Ollama container and probe local API (no model pull)
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="clinical-exam-preflight-${GITHUB_RUN_ID}"
+          trap 'docker rm -f "$name" >/dev/null 2>&1 || true' EXIT
+          docker run -d --rm --name "$name" \
+            -p 127.0.0.1:11434:11434 \
+            ollama/ollama@sha256:dea72d1e22270fe095b68fdf756d2b489d615643c5a2eaebbc5f569181e322d8
+          ready=0
+          for i in $(seq 1 40); do
+            if curl --silent --fail --max-time 3 http://127.0.0.1:11434/api/tags >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          [[ "$ready" -eq 1 ]] || { echo '::error::Pinned Ollama container did not become ready'; exit 1; }
+          [[ "$(docker inspect -f '{{.State.Running}}' "$name")" == true ]]
+          echo 'Pinned Ollama container started and local API responded; model inference and release upload remain untested.'
