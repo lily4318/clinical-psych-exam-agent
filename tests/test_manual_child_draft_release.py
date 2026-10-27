@@ -40,7 +40,7 @@ def test_manual_draft_delivery_is_fail_closed_and_uses_no_actions_artifacts():
     for command in ("docker info", "gh release create --help", "gh release download --help", "gh release delete --help"):
         assert command in preflight
     verify_idx = next(i for i, step in enumerate(steps) if step.get("id") == "verify")
-    publish_idx = next(i for i, step in enumerate(steps) if "gh release create" in step.get("run", ""))
+    publish_idx = next(i for i, step in enumerate(steps) if step.get("name", "").startswith("Publish only verified files"))
     assert verify_idx < publish_idx
     checkout = next(step for step in steps if step.get("uses", "").startswith("actions/checkout@"))
     assert checkout["with"]["persist-credentials"] is False
