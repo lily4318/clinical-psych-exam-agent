@@ -39,6 +39,7 @@ def test_manual_draft_delivery_is_fail_closed_and_uses_no_actions_artifacts():
     assert "isPrerelease == true" in publish
     assert "gh release delete" in publish
     assert "upload-artifact" not in raw
+    assert "runner.temp" not in raw  # runner context is invalid in job-level env
     assert "pull_request_target:" not in raw
     assert "OPENAI_API_KEY" not in raw
     assert "ollama pull qwen2.5:3b" in raw
