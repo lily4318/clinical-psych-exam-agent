@@ -42,7 +42,7 @@ jobs:
           name="clinical-exam-preflight-${GITHUB_RUN_ID}"
           trap 'docker rm -f "$name" >/dev/null 2>&1 || true' EXIT
           docker run -d --rm --name "$name" \
-            -p 127.0.0.1:11434:11434 \
+            -e OLLAMA_CONTEXT_LENGTH=8192 -p 127.0.0.1:11434:11434 \
             ollama/ollama@sha256:dea72d1e22270fe095b68fdf756d2b489d615643c5a2eaebbc5f569181e322d8
           ready=0
           for i in $(seq 1 40); do
@@ -54,4 +54,26 @@ jobs:
           done
           [[ "$ready" -eq 1 ]] || { echo '::error::Pinned Ollama container did not become ready'; exit 1; }
           [[ "$(docker inspect -f '{{.State.Running}}' "$name")" == true ]]
-          echo 'Pinned Ollama container started and local API responded; model inference and release upload remain untested.'
+          echo 'Pinned Ollama container started and local API responded.'
+      - name: Smoke-test one bounded local model inference (no clinical content)
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="clinical-exam-infer-${GITHUB_RUN_ID}"
+          trap 'docker rm -f "$name" >/dev/null 2>&1 || true' EXIT
+          docker run -d --rm --name "$name" -e OLLAMA_CONTEXT_LENGTH=8192 \
+            -p 127.0.0.1:11434:11434 \
+            ollama/ollama@sha256:dea72d1e22270fe095b68fdf756d2b489d615643c5a2eaebbc5f569181e322d8
+          for i in $(seq 1 40); do
+            if curl --silent --fail --max-time 3 http://127.0.0.1:11434/api/tags >/dev/null; then break; fi
+            sleep 2
+          done
+          docker exec "$name" ollama pull qwen2.5:3b
+          # Non-clinical 32-token smoke only: verifies real local inference, not exam quality.
+          response="$(curl --silent --show-error --fail --max-time 240 \
+            http://127.0.0.1:11434/api/generate \
+            -H 'Content-Type: application/json' \
+            --data '{"model":"qwen2.5:3b","prompt":"Reply with the single word READY.","stream":false,"options":{"num_predict":32,"temperature":0}}')"
+          printf '%s' "$response" | jq -e '.done == true and (.response | type == "string" and length > 0) and (.eval_count | type == "number" and . > 0)' >/dev/null
+          printf '%s' "$response" | jq -r '"Local model smoke succeeded; prompt_tokens=\(.prompt_eval_count // "unknown"), output_tokens=\(.eval_count // "unknown"), done_reason=\(.done_reason // "unknown")"'
+          echo 'No paid API, clinical generation, release creation, or repository write performed.'
