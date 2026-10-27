@@ -559,9 +559,10 @@ def test_split_inference_retries_one_cross_pair_duplicate_stem(tmp_path):
         split_pair_inference=True,
     )
     assert len(model.calls) == 5
-    assert model.calls[-1]["retry_reason"] == "repeated_stem_across_pairs"
-    assert model.calls[-1]["form"]["form"] == "甲卷"
-    assert "來源不足" in model.calls[-1]["task"]
+    # P02 甲卷 is regenerated before the final P02 乙卷 call.
+    assert model.calls[-2]["retry_reason"] == "repeated_stem_across_pairs"
+    assert model.calls[-2]["form"]["form"] == "甲卷"
+    assert "來源不足" in model.calls[-2]["task"]
     assert verify_pair(paths["form_a"], paths["form_b"], 2)["ok"]
 
 
