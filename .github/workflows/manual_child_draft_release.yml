@@ -17,7 +17,7 @@ name: manual child A/B Word draft delivery
           - "8"
           - "20"
 
-# Only a manual dispatch from the repository owner can use this write token.
+# Only owner-initiated manual dispatches and owner-initiated reruns on main may publish.
 # No pull_request / pull_request_target event and no model-generated shell code.
 permissions:
   contents: write
@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   publish-draft:
-    if: ${{ github.repository == 'lily4318/clinical-psych-exam-agent' && github.event.repository.private == false && github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.repository == 'lily4318/clinical-psych-exam-agent' && github.event.repository.private == false && github.event_name == 'workflow_dispatch' && github.actor == 'lily4318' && github.triggering_actor == 'lily4318' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 300
     env:
