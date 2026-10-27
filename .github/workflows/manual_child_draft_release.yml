@@ -61,11 +61,13 @@ jobs:
           gh release delete --help | grep -F -- '--cleanup-tag' >/dev/null
       - name: Install existing Python dependencies
         run: python -m pip install -e .
+      # Pin the exact image digest observed in successful real 8+8 run #40436488179;
+      # do not silently adopt a changed :latest runtime in a write-capable workflow.
       - name: Start local CPU-only Ollama (no model API charges)
         shell: bash
         run: |
           set -euo pipefail
-          docker run -d --rm --name clinical-exam-ollama -e OLLAMA_CONTEXT_LENGTH=8192 -p 127.0.0.1:11434:11434 ollama/ollama:latest
+          docker run -d --rm --name clinical-exam-ollama -e OLLAMA_CONTEXT_LENGTH=8192 -p 127.0.0.1:11434:11434 ollama/ollama@sha256:dea72d1e22270fe095b68fdf756d2b489d615643c5a2eaebbc5f569181e322d8
           for i in $(seq 1 40); do
             if curl --silent --fail http://127.0.0.1:11434/api/tags >/dev/null; then break; fi
             sleep 2
