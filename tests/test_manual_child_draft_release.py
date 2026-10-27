@@ -67,4 +67,8 @@ def test_manual_draft_delivery_is_fail_closed_and_uses_no_actions_artifacts():
     assert "runner.temp" not in raw  # runner context is invalid in job-level env
     assert "pull_request_target:" not in raw
     assert "OPENAI_API_KEY" not in raw
+    # Pin the delivery container to the digest observed in the real 8+8 success;
+    # a mutable :latest tag could silently change generation/verification behavior.
+    assert "ollama/ollama:latest" not in raw
+    assert "ollama/ollama@sha256:dea72d1e22270fe095b68fdf756d2b489d615643c5a2eaebbc5f569181e322d8" in raw
     assert "ollama pull qwen2.5:3b" in raw
