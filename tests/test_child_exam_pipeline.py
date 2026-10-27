@@ -540,6 +540,53 @@ class SingleFormFakeModel:
         return result
 
 
+def test_split_inference_retries_one_cross_pair_duplicate_stem(tmp_path):
+    """Real P07-type failure: one complete regeneration, never a stem edit."""
+    from src.verify_external_delivery import verify_pair
+
+    previous = {}
+    def duplicate_once(response, request):
+        pair = request["pair_spec"]["pair_id"]
+        form = request["form"]["form"]
+        if pair == "P01" and form == "乙卷":
+            previous["stem"] = response["item"]["stem"]
+        if pair == "P02" and form == "甲卷" and not request.get("retry_reason"):
+            response["item"]["stem"] = "  " + previous["stem"] + "　"
+
+    model = SingleFormFakeModel(duplicate_once)
+    paths = generate_child_parallel_docx(
+        model, _evidence(), tmp_path, items_per_form=2,
+        split_pair_inference=True,
+    )
+    assert len(model.calls) == 5
+    assert model.calls[-1]["retry_reason"] == "repeated_stem_across_pairs"
+    assert model.calls[-1]["form"]["form"] == "甲卷"
+    assert "來源不足" in model.calls[-1]["task"]
+    assert verify_pair(paths["form_a"], paths["form_b"], 2)["ok"]
+
+
+def test_split_inference_repeated_cross_pair_stem_fails_closed_after_one_retry(tmp_path):
+    """A model that keeps copying old stems must never publish partial Word."""
+    previous = {}
+    def always_duplicate(response, request):
+        pair = request["pair_spec"]["pair_id"]
+        form = request["form"]["form"]
+        if pair == "P01" and form == "乙卷":
+            previous["stem"] = response["item"]["stem"]
+        if pair == "P02" and form == "甲卷":
+            response["item"]["stem"] = previous["stem"]
+
+    model = SingleFormFakeModel(always_duplicate)
+    with pytest.raises(ValueError, match="duplicate question stem"):
+        generate_child_parallel_docx(
+            model, _evidence(), tmp_path, items_per_form=2,
+            split_pair_inference=True,
+        )
+    assert len(model.calls) == 4
+    assert model.calls[-1]["retry_reason"] == "repeated_stem_across_pairs"
+    assert not list(tmp_path.glob("*.docx"))
+
+
 def test_split_inference_produces_two_strict_word_files_without_stub(tmp_path):
     from src.verify_external_delivery import verify_pair
 
