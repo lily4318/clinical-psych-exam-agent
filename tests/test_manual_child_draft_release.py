@@ -17,6 +17,8 @@ def test_manual_draft_delivery_is_fail_closed_and_uses_no_actions_artifacts():
     assert set(workflow["on"]) == {"workflow_dispatch"}
     assert workflow["permissions"] == {"contents": "write"}
     assert set(workflow["on"]["workflow_dispatch"]["inputs"]["items"]["options"]) == {"3", "8", "20"}
+    # The owner acceptance gate is 3+3; never silently default to an unverified 8+8 run.
+    assert workflow["on"]["workflow_dispatch"]["inputs"]["items"]["default"] == "3"
     job = workflow["jobs"]["publish-draft"]
     assert job["runs-on"] == "ubuntu-latest"
     # The write-capable token must not reach pip, downloaded sources or Ollama.
