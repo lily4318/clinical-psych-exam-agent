@@ -41,6 +41,11 @@ def _validate_exam(exam: dict[str, Any], *, include_answers: bool) -> None:
             for letter in "ABCD"
         ):
             raise ValueError(f"Item {number} requires non-empty A-D options.")
+        # Reject duplicate option *content* before writing either Word file.
+        # This is a deterministic text check, not clinical semantic validation.
+        option_texts = [normalize_question_stem(options[letter]) for letter in "ABCD"]
+        if len(set(option_texts)) != 4:
+            raise ValueError(f"Item {number} requires four distinct A-D option texts.")
         if include_answers:
             answer = item.get("correct_answer")
             if not isinstance(answer, str) or answer not in {"A", "B", "C", "D"}:
