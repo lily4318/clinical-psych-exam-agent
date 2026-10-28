@@ -44,6 +44,8 @@ elif args[:2] == ["release", "view"]:
             for p in sorted(assets.glob("*.docx"))
         ],
     }
+    if os.environ.get("GH_FAKE_BAD_METADATA") == "1":
+        data["assets"][0]["size"] = 0  # Published metadata must fail closed.
     print(json.dumps(data))
 elif args[:2] == ["release", "download"]:
     destination = Path(args[args.index("--dir") + 1])
@@ -60,8 +62,8 @@ else:
 '''
 
 
-@pytest.mark.parametrize("corrupt", [False, True])
-def test_draft_release_shell_retrieves_identical_bytes_or_cleans_up(tmp_path, corrupt):
+@pytest.mark.parametrize("failure_mode", ["success", "corrupt_download", "bad_metadata"])
+def test_draft_release_shell_retrieves_identical_bytes_or_cleans_up(tmp_path, failure_mode):
     """Run the actual YAML publish script with fake transport, not a substring test."""
     workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
     step = next(
@@ -92,7 +94,8 @@ def test_draft_release_shell_retrieves_identical_bytes_or_cleans_up(tmp_path, co
         "GITHUB_SHA": "a" * 40,
         "GITHUB_STEP_SUMMARY": str(summary),
         "GH_FAKE_DIR": str(fake),
-        "GH_FAKE_CORRUPT": "1" if corrupt else "0",
+        "GH_FAKE_CORRUPT": "1" if failure_mode == "corrupt_download" else "0",
+        "GH_FAKE_BAD_METADATA": "1" if failure_mode == "bad_metadata" else "0",
         "GH_TOKEN": "offline-test-placeholder",
     }
     completed = subprocess.run(
@@ -103,10 +106,12 @@ def test_draft_release_shell_retrieves_identical_bytes_or_cleans_up(tmp_path, co
     assert "release create " in commands
     assert "release view " in commands
     assert "release download " in commands
-    if corrupt:
+    if failure_mode != "success":
         assert completed.returncode != 0
         assert "release delete " in commands
         assert not (fake / "assets").exists()
+        if failure_mode == "bad_metadata":
+            assert "release download " not in commands  # Reject metadata before transfer.
     else:
         assert completed.returncode == 0, completed.stderr + completed.stdout
         assert "release delete " not in commands
