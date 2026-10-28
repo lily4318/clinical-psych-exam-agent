@@ -235,6 +235,14 @@ def inspect_form(path: str | Path, form: str, item_count: int) -> dict[str, Any]
                 number, refs = int(match.group(1)), match.group(2).strip()
                 if number in appendix_sources:
                     errors.append(f"來源對照重複題號：{number}")
+                # Source IDs in reader-facing appendices are comma-separated
+                # by the DOCX exporter. A duplicated or empty ID must not pass
+                # the external delivery gate, even if the source line exists.
+                source_ids = [part.strip() for part in refs.split(",")]
+                if any(not source_id for source_id in source_ids):
+                    errors.append(f"第 {number} 題來源 ID 不可為空")
+                elif len(source_ids) != len(set(source_ids)):
+                    errors.append(f"第 {number} 題來源 ID 重複")
                 appendix_sources[number] = refs
     if source_lines:
         if len(source_lines) != item_count:
