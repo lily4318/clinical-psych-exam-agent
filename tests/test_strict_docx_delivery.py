@@ -122,6 +122,36 @@ def test_modern_missing_source_mapping_fails(tmp_path):
     assert any("來源" in error for error in result["files"]["form_b"]["errors"])
 
 
+
+@pytest.mark.parametrize(
+    ("source_line", "expected_error"),
+    [
+        ("第 1 題：TEST-SOURCE-001, TEST-SOURCE-001", "來源 ID 重複"),
+        ("第 1 題：TEST-SOURCE-001, ", "來源 ID 不可為空"),
+    ],
+)
+def test_modern_source_appendix_rejects_duplicate_or_empty_ids(
+    tmp_path, source_line, expected_error
+):
+    """A structurally present source mapping is not sufficient if IDs are invalid."""
+    pair = _pair(tmp_path)
+    path = pair["form_b"]
+    doc = Document(path)
+    for paragraph in doc.paragraphs:
+        if paragraph.text.startswith("第 1 題："):
+            paragraph.text = source_line
+            break
+    else:
+        pytest.fail("Fixture did not contain the first source mapping.")
+    doc.save(path)
+    result = verify_pair(pair["form_a"], path, 2)
+    assert not result["ok"]
+    assert any(
+        expected_error in error
+        for error in result["files"]["form_b"]["errors"]
+    )
+
+
 def test_modern_source_appendix_before_explanations_fails(tmp_path):
     pair = _pair(tmp_path)
     path = pair["form_b"]
