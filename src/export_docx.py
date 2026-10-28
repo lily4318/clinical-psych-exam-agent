@@ -14,6 +14,8 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt
 
+from .verify_external_delivery import normalize_question_stem
+
 
 def _safe_slug(value: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip(".-") or "draft"
@@ -250,6 +252,21 @@ def export_parallel_docx(
         if pair_a in seen_pair_ids:
             raise ValueError(f"Duplicate pair ID at item {number}: {pair_a}.")
         seen_pair_ids.add(pair_a)
+
+    # The JSON-to-DOCX CLI must reject reused stems before writing either
+    # file. This mirrors the external G3 verifier's exact-text normalization
+    # (NFKC, whitespace, case); it is not a semantic-equivalence check.
+    seen_stems: dict[str, tuple[str, int]] = {}
+    for label, exam in (("甲卷", form_a), ("乙卷", form_b)):
+        for number, item in enumerate(exam["items"], start=1):
+            key = normalize_question_stem(item["stem"])
+            if key in seen_stems:
+                prior_label, prior_number = seen_stems[key]
+                raise ValueError(
+                    "Duplicate question stem in parallel forms: "
+                    f"{prior_label} item {prior_number}, {label} item {number}."
+                )
+            seen_stems[key] = (label, number)
 
     # The public JSON-to-DOCX CLI must not leave only one Word if the second
     # export fails, nor silently replace a previously delivered exam. Stage
