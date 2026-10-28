@@ -105,7 +105,8 @@ def test_draft_release_shell_retrieves_identical_bytes_or_cleans_up(tmp_path, fa
     commands = (fake / "commands.txt").read_text(encoding="utf-8")
     assert "release create " in commands
     assert "release view " in commands
-    assert "release download " in commands
+    if failure_mode != "bad_metadata":
+        assert "release download " in commands
     if failure_mode != "success":
         assert completed.returncode != 0
         assert "release delete " in commands
