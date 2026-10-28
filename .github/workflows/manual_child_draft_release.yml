@@ -10,7 +10,7 @@ name: manual child A/B Word draft delivery
       items:
         description: "Diagnostic pairs per form (20 is NOT yet throughput-validated)"
         required: true
-        default: "8"
+        default: "3"
         type: choice
         options:
           - "3"
