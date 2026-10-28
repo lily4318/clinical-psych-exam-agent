@@ -214,9 +214,17 @@ def inspect_form(path: str | Path, form: str, item_count: int) -> dict[str, Any]
         errors.append(f"題號／數量不符：應有 1–{item_count}，實際 {nums}")
     for pos, (i, number) in enumerate(question_positions):
         end = question_positions[pos + 1][0] if pos + 1 < len(question_positions) else len(question_lines)
-        options = [OPTION.match(s).group(1).upper() for s in question_lines[i + 1:end] if OPTION.match(s)]
+        option_matches = [OPTION.match(s) for s in question_lines[i + 1:end]]
+        option_matches = [match for match in option_matches if match]
+        options = [match.group(1).upper() for match in option_matches]
         if sorted(options) != list("ABCD"):
             errors.append(f"第 {number} 題缺少或重複 A–D 選項：{options}")
+        else:
+            # External Word files may bypass our JSON exporter. Reject exact
+            # text duplicates (including NFKC and whitespace variants) here too.
+            option_texts = [normalize_question_stem(match.group(2)) for match in option_matches]
+            if len(set(option_texts)) != 4:
+                errors.append(f"第 {number} 題 A–D 選項內容重複")
 
     answers, answer_errors = _parse_answers(doc, answer_lines, item_count)
     result["answers"] = len(answers)
