@@ -59,6 +59,20 @@ def test_export_refuses_invalid_sources_before_any_writes(tmp_path, bad):
     assert not list(tmp_path.glob("*.docx"))
 
 
+@pytest.mark.parametrize("repeat_target", ["same_form", "other_form"])
+def test_json_export_rejects_duplicate_normalized_stems_before_writing(tmp_path, repeat_target):
+    """Fail closed before exporting either Word, even for NFKC/space variants."""
+    a, b = _form("甲卷"), _form("乙卷")
+    repeated = a["items"][0]["stem"]
+    if repeat_target == "same_form":
+        a["items"][1]["stem"] = "　" + repeated + "  "
+    else:
+        b["items"][1]["stem"] = repeated.replace("1", "１")
+    with pytest.raises(ValueError, match="Duplicate question stem"):
+        export_parallel_docx(a, b, tmp_path)
+    assert not list(tmp_path.glob("*.docx"))
+
+
 def test_complete_modern_documents_are_structurally_accepted(tmp_path):
     pair = _pair(tmp_path)
     result = verify_pair(pair["form_a"], pair["form_b"], 2)
@@ -210,13 +224,24 @@ def test_external_docx_rejects_reused_stem_at_different_question_number(
     tmp_path, repeat_target
 ):
     """Externally generated Word cannot silently repeat a question elsewhere."""
-    a, b = _form("甲卷"), _form("乙卷")
-    repeated = a["items"][0]["stem"]
-    if repeat_target == "same_form":
-        a["items"][1]["stem"] = "　" + repeated + "  "
+    # Mutate an already exported file to exercise the *external* verifier;
+    # the JSON exporter now refuses these invalid stems before publication.
+    pair = _pair(tmp_path)
+    a_doc = Document(pair["form_a"])
+    repeated = next(p.text.split(". ", 1)[1] for p in a_doc.paragraphs
+                    if p.text.startswith("1. "))
+    target = pair["form_a"] if repeat_target == "same_form" else pair["form_b"]
+    doc = Document(target)
+    for paragraph in doc.paragraphs:
+        if paragraph.text.startswith("2. "):
+            paragraph.text = "2. " + (
+                "　" + repeated + "  " if repeat_target == "same_form"
+                else repeated.replace("1", "１")
+            )
+            break
     else:
-        b["items"][1]["stem"] = repeated.replace("1", "１")
-    pair = export_parallel_docx(a, b, tmp_path)
+        pytest.fail("Expected second question heading in test DOCX.")
+    doc.save(target)
     result = verify_pair(pair["form_a"], pair["form_b"], 2)
     assert not result["ok"]
     form = "form_a" if repeat_target == "same_form" else "form_b"
