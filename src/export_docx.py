@@ -62,7 +62,7 @@ def _validate_exam(exam: dict[str, Any], *, include_answers: bool) -> None:
 
 def _unique_sources(exam: dict[str, Any]) -> list[str]:
     return list(dict.fromkeys(
-        str(source_id)
+        str(source_id).strip()
         for item in exam["items"]
         for source_id in (item.get("sources") or [])
         if str(source_id).strip()
