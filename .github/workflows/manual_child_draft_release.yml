@@ -59,6 +59,16 @@ jobs:
           gh release create --help | grep -F -- '--draft' >/dev/null
           gh release download --help | grep -F -- '--pattern' >/dev/null
           gh release delete --help | grep -F -- '--cleanup-tag' >/dev/null
+      # Verify the token and GitHub Releases REST endpoint before expensive
+      # model download/inference. This GET does NOT prove release write access.
+      # Keep the token confined to this trusted step and the publish step.
+      - name: Preflight authenticated GitHub Release API (read-only)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -X GET "repos/${GITHUB_REPOSITORY}/releases?per_page=1" --jq 'length' >/dev/null
       - name: Install existing Python dependencies
         run: python -m pip install -e .
       # Pin the exact image digest observed in successful real 8+8 run #40436488179;
