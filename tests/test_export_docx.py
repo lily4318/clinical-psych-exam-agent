@@ -7,7 +7,7 @@ from src.export_docx import export_exam_docx, export_parallel_docx
 def _exam(form: str) -> dict:
     item = {
         "pair_id": "P01",
-        "stem": "兒童心理衡鑑應整合哪些資訊？",
+        "stem": f"{form} 兒童心理衡鑑應整合哪些資訊？",
         "options": {
             "A": "僅家長評估",
             "B": "只有學校觀察",

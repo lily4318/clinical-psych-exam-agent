@@ -15,7 +15,7 @@ def _exam(form: str) -> dict:
         "items": [
             {
                 "pair_id": "P01",
-                "stem": "測試題幹",
+                "stem": f"{form} 測試題幹",
                 "options": {
                     "A": "選項甲",
                     "B": "選項乙",
