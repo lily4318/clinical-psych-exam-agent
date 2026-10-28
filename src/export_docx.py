@@ -28,11 +28,17 @@ def _validate_exam(exam: dict[str, Any], *, include_answers: bool) -> None:
     if not isinstance(items, list) or not items:
         raise ValueError("Exam must contain a non-empty items list.")
     for number, item in enumerate(items, start=1):
-        if not isinstance(item, dict) or not str(item.get("stem", "")).strip():
+        if (
+            not isinstance(item, dict)
+            or not isinstance(item.get("stem"), str)
+            or not item["stem"].strip()
+        ):
             raise ValueError(f"Item {number} requires a question stem.")
         options = item.get("options")
         if not isinstance(options, dict) or any(
-            not str(options.get(letter, "")).strip() for letter in "ABCD"
+            not isinstance(options.get(letter), str)
+            or not options[letter].strip()
+            for letter in "ABCD"
         ):
             raise ValueError(f"Item {number} requires non-empty A-D options.")
         if include_answers:
