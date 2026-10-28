@@ -41,6 +41,16 @@ def test_manual_draft_delivery_is_fail_closed_and_uses_no_actions_artifacts():
     assert "GH_TOKEN" not in steps[preflight_idx].get("env", {})
     for command in ("docker info", "gh release create --help", "gh release download --help", "gh release delete --help"):
         assert command in preflight
+    # A read-only authenticated API preflight must fail before expensive local
+    # inference if the GitHub Releases endpoint or token is unavailable.
+    auth_idx = next(i for i, step in enumerate(steps)
+                    if step.get("name", "").startswith("Preflight authenticated GitHub Release API"))
+    assert preflight_idx < auth_idx < generation_idx
+    auth = steps[auth_idx]["run"]
+    assert 'gh api -X GET "repos/${GITHUB_REPOSITORY}/releases?per_page=1"' in auth
+    assert "--jq 'length'" in auth
+    assert steps[auth_idx]["env"]["GH_TOKEN"] == "${{ github.token }}"
+    assert "GH_TOKEN" not in steps[generation_idx].get("env", {})
     verify_idx = next(i for i, step in enumerate(steps) if step.get("id") == "verify")
     publish_idx = next(i for i, step in enumerate(steps) if step.get("name", "").startswith("Publish only verified files"))
     assert verify_idx < publish_idx
@@ -51,7 +61,7 @@ def test_manual_draft_delivery_is_fail_closed_and_uses_no_actions_artifacts():
     setup_python = next(step for step in steps if step.get("uses", "").startswith("actions/setup-python@"))
     assert setup_python["uses"] == "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065"
     assert steps[publish_idx]["env"]["GH_TOKEN"] == "${{ github.token }}"
-    assert all("GH_TOKEN" not in step.get("env", {}) for i, step in enumerate(steps) if i != publish_idx)
+    assert all("GH_TOKEN" not in step.get("env", {}) for i, step in enumerate(steps) if i not in (auth_idx, publish_idx))
     verify = steps[verify_idx]["run"]
     publish = steps[publish_idx]["run"]
     assert "src.verify_external_delivery" in verify
