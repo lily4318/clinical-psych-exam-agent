@@ -51,7 +51,7 @@ def _validate_exam(exam: dict[str, Any], *, include_answers: bool) -> None:
                 not isinstance(sources, list)
                 or not sources
                 or any(not isinstance(source, str) or not source.strip() for source in sources)
-                or len(set(sources)) != len(sources)
+                or len({source.strip() for source in sources}) != len(sources)
             ):
                 raise ValueError(
                     f"Item {number} requires unique non-empty source IDs."

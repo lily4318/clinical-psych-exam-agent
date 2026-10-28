@@ -47,7 +47,7 @@ def test_export_refuses_missing_option_rationale_before_any_writes(tmp_path, let
     assert not list(tmp_path.glob("*.docx"))
 
 
-@pytest.mark.parametrize("bad", [None, [], [""], ["TEST-SOURCE-001", "TEST-SOURCE-001"]])
+@pytest.mark.parametrize("bad", [None, [], [""], ["TEST-SOURCE-001", "TEST-SOURCE-001"], ["TEST-SOURCE-001", " TEST-SOURCE-001 "]])
 def test_export_refuses_invalid_sources_before_any_writes(tmp_path, bad):
     a, b = _form("甲卷"), _form("乙卷")
     if bad is None:
