@@ -293,8 +293,11 @@ def _check_item(
         errors.append("Options must contain exactly A-D.")
     else:
         invalid = [key for key in LETTERS if not _substantive(options[key])]
+        # Match the NFKC/whitespace/case normalization enforced by the
+        # JSON-to-DOCX exporter and external delivery verifier. Otherwise a
+        # model may pass this gate but fail after all expensive CPU inferences.
         normalized = [
-            options[key].strip().casefold()
+            normalize_question_stem(options[key])
             for key in LETTERS if isinstance(options[key], str)
         ]
         distinct = len(set(normalized))
