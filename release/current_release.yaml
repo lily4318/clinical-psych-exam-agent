@@ -68,4 +68,13 @@ research_and_optimization:
   evaluation_tracks: [regression, agent_task_success, expert_item_validity, psychometrics, operational_quality]
   github_connector_status: working
   sandbox_git_clone_status: dns_blocked
-  github_actions_status: startup_failure_historical_smoke_pending
+  github_actions_status: pr_ci_green_manual_draft_delivery_unverified
+  github_actions_status_checked_at: "2026-10-28T18:04:56+08:00"
+  github_actions_ci_evidence:
+    run_id: 40611986576
+    head_sha: 22a3f08595d1a2b90ebdeee80a57f962ca3ef255
+    pytest_passed: 313
+    pytest_total: 313
+    evidence_scope: pre_merge_pull_request
+  github_actions_manual_draft_delivery: not_yet_run
+  github_actions_status_note: "Older startup_failure was historical; always recheck live Actions. PR pytest green does not prove main CI or remote DOCX delivery."

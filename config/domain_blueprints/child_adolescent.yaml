@@ -1,0 +1,113 @@
+# Candidate child/adolescent domain; NOT a validated exam-frequency analysis.
+schema_version: 1
+domain_id: child_adolescent
+status: provisional_pending_child_historical_analysis
+scope:
+  exam: "臺灣專門職業及技術人員高等考試 臨床心理師"
+  content_domain: "兒童／青少年臨床心理與發展障礙之心理衡鑑與心理治療"
+  examinee_level: "臨床心理師國考程度；不是給兒童本人作答"
+historical_evidence:
+  window_mode: latest_5_available_exam_years
+  index_file: data/historical_exam_index.csv
+  child_specific_items_indexed: false
+  distribution_validated_against_child_exam_items: false
+  note: "目前 historical_exam_index.csv 為物質濫用考點索引，僅能解析可取得考試年度，不可用其考點頻率推估兒童領域命題比例。須另行抽取111–115年特論（二）的兒童題目後重校準。"
+forms:
+  names: ["甲卷", "乙卷"]
+  baseline_items_per_form: 20
+  parallel_pairing: true
+targets:
+  difficulty: {basic: 3, medium: 11, advanced: 6}
+  cognition: {memory: 2, understanding: 7, application: 8, integration: 3}
+sources:
+  MOEX-115-CLINICAL-II:
+    title: "115年考選部考畢試題：臨床心理學特論（二）"
+    organization: "中華民國考選部"
+    url: "https://wwwq.moex.gov.tw/exam/wFrmExamQandASearch.aspx?e=115100&y=2026"
+    kind: exam_scope_reference
+    limitation: "用於確認科目涵蓋兒童與青少年發展障礙；不代表已取得近5年兒童專題題目統計。"
+  NICE-NG87:
+    title: "Attention deficit hyperactivity disorder: diagnosis and management"
+    organization: "NICE"
+    url: "https://www.nice.org.uk/guidance/ng87/chapter/recommendations"
+    kind: clinical_guideline
+  NICE-CG128:
+    title: "Autism spectrum disorder in under 19s: recognition, referral and diagnosis"
+    organization: "NICE"
+    url: "https://www.nice.org.uk/guidance/cg128/chapter/Recommendations"
+    kind: clinical_guideline
+  NICE-NG11:
+    title: "Challenging behaviour and learning disabilities"
+    organization: "NICE"
+    url: "https://www.nice.org.uk/guidance/ng11/chapter/recommendations"
+    kind: clinical_guideline
+  NICE-NG134:
+    title: "Depression in children and young people: identification and management"
+    organization: "NICE"
+    url: "https://www.nice.org.uk/guidance/ng134/chapter/Recommendations"
+    kind: clinical_guideline
+  NICE-NG225:
+    title: "Self-harm: assessment, management and preventing recurrence"
+    organization: "NICE"
+    url: "https://www.nice.org.uk/guidance/ng225/chapter/recommendations"
+    kind: clinical_guideline
+categories:
+  ADHD:
+    name: "注意力不足／過動症與執行功能"
+    baseline_items: 4
+    source_ids: ["NICE-NG87"]
+    focus_areas:
+      - "兒童ADHD之發展史、跨情境訊息與鑑別"
+      - "注意力、衝動控制與日常功能影響"
+      - "共病與多資訊來源心理衡鑑"
+      - "行為管理與發展適切介入"
+  ASD:
+    name: "自閉症類群與社會溝通發展"
+    baseline_items: 4
+    source_ids: ["NICE-CG128"]
+    focus_areas:
+      - "社會溝通與侷限重複行為之臨床辨識"
+      - "發展史、早期徵象與跨場域觀察"
+      - "自閉症與語言、智能及ADHD共病鑑別"
+      - "家庭、學校參與及多專業評估"
+  DEV:
+    name: "智能、適應功能及其他神經發展問題"
+    baseline_items: 3
+    source_ids: ["NICE-NG11", "NICE-CG128"]
+    focus_areas:
+      - "發展及適應功能的多面向評估"
+      - "認知與學習困難之跨來源資料整合"
+      - "挑戰行為之功能分析與環境因素"
+  ASSESS:
+    name: "兒少臨床衡鑑與鑑別診斷"
+    baseline_items: 4
+    source_ids: ["NICE-NG87", "NICE-CG128", "NICE-NG11"]
+    focus_areas:
+      - "家長、教師及兒少自述資料整合"
+      - "症狀、發展階段、文化及情境解釋"
+      - "心理量表、訪談與行為觀察的限制"
+      - "鑑別診斷與多專業轉介判斷"
+  EMOTION:
+    name: "兒少情緒困擾、共病及風險評估"
+    baseline_items: 3
+    source_ids: ["NICE-NG134", "NICE-NG225"]
+    focus_areas:
+      - "兒少憂鬱與發展適切心理衡鑑"
+      - "功能影響、共病及家庭脈絡"
+      - "自傷風險之心理社會評估及安全議題"
+  INTERVENTION:
+    name: "兒少心理治療、家庭及學校系統介入"
+    baseline_items: 2
+    source_ids: ["NICE-NG87", "NICE-NG134", "NICE-NG11"]
+    focus_areas:
+      - "兒童與青少年發展適切心理治療及家長參與"
+      - "家庭、校園、醫療跨系統與成效監測"
+quality_limits:
+  source_ids_are_leads_only: true
+  require_claim_level_source_verification_before_generation: true
+  high_risk_dsm_medication_safety_require_independent_source_check: true
+  item_content_not_generated_by_this_blueprint: true
+  require_real_inference_provider: true
+  never_substitute_substance_use_blueprint: true
+  never_modify_formal_v1: true
+  output_status_if_generated: "未經獨立專家驗證之新模擬題"

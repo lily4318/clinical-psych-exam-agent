@@ -1,0 +1,49 @@
+# Diagnostic only: actual official source retrieval, no model or exam generation.
+# A blocked source is reported as BLOCKED, not misrepresented as a successful fetch.
+name: real NICE source availability diagnostic
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/clinical_source_probe.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  clinical-source-probe:
+    if: ${{ github.event.repository.private == false && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing Python dependencies
+        run: python -m pip install -e .
+      - name: Fetch one real allowlisted NICE source (no mock)
+        id: source
+        continue-on-error: true
+        run: python -m src.prepare_child_evidence --items 1 --out "${RUNNER_TEMP}/child-evidence-probe.json"
+      - name: Record explicit diagnostic outcome and remove excerpts
+        if: always()
+        shell: bash
+        env:
+          SOURCE_OUTCOME: ${{ steps.source.outcome }}
+        run: |
+          set -euo pipefail
+          {
+            echo '## Real official clinical-source diagnostic'
+            echo 'Scope: first planned child/adolescent pair, real HTTPS NICE source retrieval, no inference or Word generation.'
+            if [[ "$SOURCE_OUTCOME" == "success" && -s "${RUNNER_TEMP}/child-evidence-probe.json" ]]; then
+              echo '**Source retrieval: PASS** (presence/provenance only; not independent clinical support verification).'
+            else
+              echo '**Source retrieval: BLOCKED/FAIL**. Inspect the fetch step for the specific network, HTTP, or HTML error.'
+              echo 'No question generation may proceed without a genuine verified excerpt.'
+            fi
+            echo 'Diagnostic job completion does not mean clinical source retrieval passed.'
+            echo 'No source excerpts or model prompts are uploaded as artifacts.'
+          } >> "$GITHUB_STEP_SUMMARY"
+          rm -f "${RUNNER_TEMP}/child-evidence-probe.json"

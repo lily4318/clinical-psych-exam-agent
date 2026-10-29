@@ -1,0 +1,74 @@
+# User-confirmed cold-start acceptance evidence; not an independent file audit.
+# This is distinct from the 2026-10-22 ten-item trial with the SAME chat title.
+trial_id: chatgpt-20261025-child-default-20q-01
+reported_at_local_date: "2026-10-25"
+executed_at_local_datetime: unknown
+timezone: Asia/Taipei
+conversation_title: "製作模擬考卷 DOCX"
+platform: ChatGPT
+model: unknown
+repository: lily4318/clinical-psych-exam-agent
+repository_main_sha_at_recording: "448d7321173f0b8922e2c3d6ccc764fa24cdefa0"
+repository_sha_actually_read_by_trial: unknown
+trial_scenario: "T2: child/adolescent default item count and first-turn dual-DOCX delivery"
+requested_domain: child_adolescent
+item_count_in_test_prompt: not_independently_retrieved
+expected_default_items_per_form: 20
+user_reported_items_per_form:
+  form_a: 20
+  form_b: 20
+user_reported_items_total: 40
+user_reported_distinct_questions_across_forms: true
+first_final_response:
+  form_a_docx_link_present: confirmed_by_user
+  form_b_docx_link_present: confirmed_by_user
+  form_a_downloaded_and_opened: confirmed_by_user
+  form_b_downloaded_and_opened: confirmed_by_user
+  verified_downloadable_pair: true
+  original_reply_independently_retrieved: false
+artifacts:
+  form_a_filename: unknown
+  form_b_filename: unknown
+  actual_docx_bytes_accessible_for_independent_audit: false
+  structural_validator_executed_on_these_files: unverified
+user_visible_acceptance:
+  criteria_passed: 9
+  criteria_checked: 9
+  checks:
+    - {id: first_reply_form_a_link, result: pass_user_confirmed}
+    - {id: first_reply_form_b_link, result: pass_user_confirmed}
+    - {id: both_docx_download_and_open, result: pass_user_confirmed}
+    - {id: both_forms_have_20_distinct_questions, result: pass_user_confirmed}
+    - {id: no_verbose_ai_instructions_in_question_section, result: pass_user_confirmed}
+    - {id: per_form_scope_and_basis_before_answer_explanations, result: pass_user_confirmed}
+    - {id: correct_answer_and_A_to_D_rationales_for_every_item, result: pass_user_confirmed}
+    - {id: source_mapping_after_all_explanations, result: pass_user_confirmed}
+    - {id: professional_validation_limits_disclosed, result: pass_user_confirmed}
+acceptance_gates:
+  G1_repository_rules_actually_loaded: not_independently_verified
+  G2_requested_domain_and_default_blueprint: partial_user_observation_counts_only
+  G3_user_visible_document_structure: pass_user_confirmed
+  G3_independent_programmatic_docx_check: not_tested_files_unavailable
+  G4_first_turn_two_downloadable_files: pass_user_confirmed
+  G5_independent_expert_clinical_accuracy_and_source_support: not_tested
+  G5_parallel_psychometric_equivalence: not_tested
+  G6_test_trace: partial_user_report
+  end_to_end_user_observed_delivery: pass_user_confirmed
+  full_independent_quality_acceptance: not_yet_verified
+metrics:
+  user_visible_checks: {passed: 9, checked: 9}
+  first_turn_downloadable_20_item_trials: {passed: 1, observed: 1}
+  independent_G3_docx_checks: {passed: 0, attempted: 0}
+  independently_expert_reviewed_new_items: {passed: 0, attempted: 0}
+  token_usage: unknown
+  actual_cost: unknown
+  execution_latency: unknown
+pending:
+  - "If available, obtain both original DOCX files to perform independent G3 verification."
+  - "Independently audit clinical answers, item-by-item option rationales, cited passages and source support."
+  - "Conduct true cross-platform cold-start tests on Claude and Gemini before claiming portability proven."
+notes:
+  - "The prior 2026-10-22 trial has the identical conversation title but was 10 questions per form; do not merge or overwrite records."
+  - "Nine passing checks are user observations, not 9 independent expert assessments."
+  - "The main commit captured at recording time cannot prove which commit the test AI actually read."
+  - "No sandbox file links are inferred from the existence of other conversation attachments."
