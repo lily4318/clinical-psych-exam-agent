@@ -41,6 +41,10 @@ def test_draft_release_requires_explicit_owner_main_dispatch():
     ):
         assert clause in guard, f"Missing active owner-only guard: {clause}"
     assert "pull_request:" not in text and "pull_request_target:" not in text
+    # Reject a trivially bypassed owner guard even when every required clause remains.
+    assert "||" not in guard and " or " not in guard
+    assert "true" not in guard.lower()
+
 
 
 def test_owner_guard_cannot_be_satisfied_by_comments_only():
