@@ -5,6 +5,8 @@
 - 本輪重新查得 Draft PR #46 仍 open、未合併，head `08718dc9cf8bcf03fe08a96600bbccf2899a31d1`；Actions歷史成功run `40833369315`，job `123312407353` 原始log `341 passed in 6.56s`（2026-10-29，非新pytest）。
 - `formal-v1.0`、核可題目與正式藍圖維持不變。
 - 核心阻礙：尚無 owner-only `manual_child_draft_release.yml` 自main手動 `items=3` 真實遠端雙DOCX發布／重新下載成功證據；甲乙20+20真模型吞吐及跨平台G4仍未證實。
+- **2026-11-22 證據更正**：`docs/CROSS_PLATFORM_ACCEPTANCE.md` 已記載 2026-10-22 的甲乙各10題及 2026-10-25 的甲乙各20題 ChatGPT 冷啟動測試，使用者均確認首次回覆兩份 DOCX 可下載開啟（各 1/1）；另有 2026-10-21 修正後甲乙各3題的首次下載確認 1/1。這些是**歷史平台 G4 使用者確認成功**，不得再籠統寫「跨平台 G4 從未成功」。但原始 DOCX 未供獨立 G3 檢查、實際讀取的 repo SHA 與模型未知，且**不能證明目前 V2 候選管線、GitHub Draft Release 或其他平台 G4**。當前阻礙精確限定為「V2 新整合流程的遠端發布／首次雙下載尚無實測」。
+- **2026-11-22 最新候選 CI**：PR #46 head `2ed821ff00ebdd9506b4c6ef52858eb7b243476a`，run [44938518849](https://github.com/lily4318/clinical-psych-exam-agent/actions/runs/44938518849)，job `136950406132`，原始日誌 `348 passed in 8.88s`。此為靜態／回歸證據，非 G3/G4 新成功。
 - 本輪唯一候選改進：V2單核心＋四程序技能＋任務書＋狀態／學習紀錄＋靜態路由測試；候選分支 `refactor/agent-operating-model-v2-20261121`，Draft PR #46 已建立；初版候選 commit 80ee80611ab69c6e6c2a15f551a466501c82bbc6 的 PR pytest run 44914301797／job 136876501186 原始日誌確認 344/344 通過。第二次候選 head `08718dc9cf8bcf03fe08a96600bbccf2899a31d1` 的 Actions run `44914466917` 亦已完成 success；新增內容的 pytest 原始日誌為 `344 passed in 8.76s`。此狀態檔更新另產生後續 commit／CI，須重新核對，不得以舊 CI 冒稱新 commit 已驗證。
 - 本輪模型推論／來源盲測／專家新題／真實考生試驗：未新增。token／推論費用／延遲：未知；未使用付費API。
 
