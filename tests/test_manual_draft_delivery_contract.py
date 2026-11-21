@@ -15,16 +15,49 @@ def _workflow() -> str:
     return WORKFLOW.read_text(encoding="utf-8")
 
 
+def _job_guard(text: str) -> str:
+    """Read the actual publish-draft job if expression, never comments or docs."""
+    import re
+
+    match = re.search(
+        r"(?m)^  publish-draft:\\s*\\n    if: (\\$\\{\\{[^\\n]+\\}\\})\\s*$",
+        text,
+    )
+    assert match is not None, "publish-draft must have an active job-level if guard"
+    return match.group(1)
+
+
 def test_draft_release_requires_explicit_owner_main_dispatch():
     text = _workflow()
-    assert "workflow_dispatch:" in text
-    assert "github.event_name == 'workflow_dispatch'" in text
-    assert "github.actor == 'lily4318'" in text
-    assert "github.triggering_actor == 'lily4318'" in text
-    assert "github.ref == 'refs/heads/main'" in text
-    assert "github.repository == 'lily4318/clinical-psych-exam-agent'" in text
-    assert "github.event.repository.private == false" in text
+    assert '"on":\\n  workflow_dispatch:' in text
+    guard = _job_guard(text)
+    for clause in (
+        "github.event_name == 'workflow_dispatch'",
+        "github.actor == 'lily4318'",
+        "github.triggering_actor == 'lily4318'",
+        "github.ref == 'refs/heads/main'",
+        "github.repository == 'lily4318/clinical-psych-exam-agent'",
+        "github.event.repository.private == false",
+    ):
+        assert clause in guard, f"Missing active owner-only guard: {clause}"
     assert "pull_request:" not in text and "pull_request_target:" not in text
+
+
+def test_owner_guard_cannot_be_satisfied_by_comments_only():
+    """Regression: moving a guard clause to a comment must fail the contract."""
+    import pytest
+
+    original = _workflow()
+    guard = _job_guard(original)
+    clause = "github.triggering_actor == 'lily4318'"
+    assert clause in guard
+    weakened = original.replace(
+        " && " + clause, "",
+        1,
+    ) + "\\n# " + clause + "\\n"
+    assert clause in weakened
+    with pytest.raises(AssertionError):
+        assert clause in _job_guard(weakened)
 
 
 def test_draft_release_is_bounded_and_only_publishes_verified_files():
