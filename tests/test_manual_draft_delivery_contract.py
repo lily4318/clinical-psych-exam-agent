@@ -20,7 +20,7 @@ def _job_guard(text: str) -> str:
     import re
 
     match = re.search(
-        r"(?m)^  publish-draft:\\s*\\n    if: (\\$\\{\\{[^\\n]+\\}\\})\\s*$",
+        r"(?m)^  publish-draft:\s*\n    if: (\$\{\{[^\n]+\}\})\s*$",
         text,
     )
     assert match is not None, "publish-draft must have an active job-level if guard"
@@ -29,7 +29,7 @@ def _job_guard(text: str) -> str:
 
 def test_draft_release_requires_explicit_owner_main_dispatch():
     text = _workflow()
-    assert '"on":\\n  workflow_dispatch:' in text
+    assert '"on":\n  workflow_dispatch:' in text
     guard = _job_guard(text)
     for clause in (
         "github.event_name == 'workflow_dispatch'",
@@ -54,7 +54,7 @@ def test_owner_guard_cannot_be_satisfied_by_comments_only():
     weakened = original.replace(
         " && " + clause, "",
         1,
-    ) + "\\n# " + clause + "\\n"
+    ) + "\n# " + clause + "\n"
     assert clause in weakened
     with pytest.raises(AssertionError):
         assert clause in _job_guard(weakened)
