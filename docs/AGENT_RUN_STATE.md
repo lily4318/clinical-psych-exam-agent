@@ -66,3 +66,11 @@
 - 同一 head 真實免費本地 Ollama `qwen2.5:3b` [45041657038](https://github.com/lily4318/clinical-psych-exam-agent/actions/runs/45041657038)，job `137267247366` **failed**：`ValueError: P07: duplicate question stem in 乙卷; already used by 乙卷 P01.`；生成失敗，DOCX verification skipped，沒有本次雙 Word 交付。容器 running=true、OOMKilled=false、記憶不足訊號未見。故障分類為跨題題幹重複（模型輸出品質／去重重試未恢復），不是 CI、runner、OOM、付費服務或安全攔截。
 - 本輪唯一可回退改進：將最新原始失敗與明確的下一優先障礙持久化，避免再次針對已解除的 rationale contradiction 重複修改。尚未修改命題程式、未重新執行推論、未達 G3/G4。下一工程單元：在不放寬來源、語意與跨題去重驗證下，針對 P07 重試失敗設計可驗證的多樣化題幹約束／有限重生，先做合成測試，再跑真模型；仍失敗須拒絕輸出。
 - 五軌 KPI：A=356/356；B=本次真模型端到端0/1，G3=0/1、G4未知；C=0/0（無專家資料）；D=0/0（無考生資料）；E=未呼叫付費 API，模型 token／成本未知，真模型整體耗時與逐次 token 未核實。rollback：revert 本次狀態 commit 或關閉候選 PR；不得合併 main。
+
+
+## 2026-11-23 03:56｜語法修復後真模型新阻礙（原始日誌）
+- Baseline：Draft PR #46 head `9ccbfeeceffbbd7eea87c4e6f188d84a95154d52`，open/draft，base main `b7604d3d45d8e6f16cdcf96a21e03211e6519c3b`；正式 formal-v1.0 不變。
+- P0 修復確認：pytest [45058575272](https://github.com/lily4318/clinical-psych-exam-agent/actions/runs/45058575272)，job `137319183665` 原始日誌 `356 passed in 8.11s`，先前 SyntaxError 已解除。
+- 真模型 [45058575277](https://github.com/lily4318/clinical-psych-exam-agent/actions/runs/45058575277)，job `137319183616` **failed**。免費 CPU Ollama `qwen2.5:3b` 的 P01 甲卷第一次推論 127.1s（prompt 2300/output 409 tokens），有限重生第二次 115.9s（2386/458 tokens），仍被拒絕：`P01 form_a: Rationale contradiction: correct and incorrect options share the same substantive explanation after verdict labels are removed.`。未開始有效乙卷／八配對交付，DOCX 檢查 skipped。容器 running=true、OOMKilled=false、記憶不足訊號未見；分類為**有限重生後內容語意一致性仍失敗**，不是語法／runner／OOM。
+- 本輪可回退改進僅為新故障與兩次真推論成本的持久化，**未修改產題程式、未修復模型輸出、未完成 G3/G4**。下一工程單元應針對正誤選項解析共用理由，檢視 P01 生成提示和來源命題約束，設計一個具測試的最小改進；不能放寬語意哨兵或增加無界重試。
+- 五軌 KPI：A=356/356；B=本次真模型端到端0/1，G3=0/1，G4=未驗證；C=0/0獨立專家；D=0/0真實考生；E=未使用付費模型 API，兩次推論合計243.0s，prompt tokens=4686，output tokens=867（僅本次 P01 A 兩次），完整成本未知。回退：revert 本段紀錄 commit 或關閉 Draft PR；不修改 main/formal。
