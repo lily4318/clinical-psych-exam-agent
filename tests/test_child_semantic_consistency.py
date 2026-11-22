@@ -102,3 +102,15 @@ def test_real_model_request_contains_semantic_polarity_and_discrimination_rules(
     single = _single_form_request(request, "form_a")
     assert "within 3 months表示3個月內" in single["task"]
     assert "相同實質理由" in single["task"]
+
+
+def test_rationale_retry_prompt_regenerates_without_weakening_source_gate():
+    request = _request(SPEC, CONTEXT, 2)
+    retry = _single_form_request(
+        request, "form_b", previous_stem="甲卷既有題幹",
+        repair_rationale_contradiction=True,
+    )
+    assert retry["retry_reason"] == "rationale_contradiction"
+    assert "重新生成 item" in retry["task"]
+    assert "source_insufficient=true" in retry["task"]
+    assert retry["allowed_source_ids"] == ["NICE-CG128"]
