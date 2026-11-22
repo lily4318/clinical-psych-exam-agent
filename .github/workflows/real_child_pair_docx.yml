@@ -89,6 +89,18 @@ jobs:
           [[ ${#files_a[@]} -eq 1 && ${#files_b[@]} -eq 1 ]] || { echo 'Expected exactly two Word files'; exit 1; }
           python -m src.verify_external_delivery "${files_a[0]}" "${files_b[0]}" --items 8
           sha256sum "${files_a[0]}" "${files_b[0]}"
+      # Keep only structurally verified, unreviewed diagnostic drafts for one day.
+      # This is a CI artifact, not a clinical approval or a public release.
+      - name: Retain verified diagnostic Word files for download
+        if: ${{ success() && steps.verify.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: unreviewed-child-exam-pair-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/real-child-pair/form_a_*.docx
+            ${{ runner.temp }}/real-child-pair/form_b_*.docx
+          if-no-files-found: error
+          retention-days: 1
       - name: Record diagnostic result and clean up draft files
         if: always()
         shell: bash
@@ -102,7 +114,7 @@ jobs:
             echo "Generation: **$GENERATION_OUTCOME**; DOCX verification: **$VERIFICATION_OUTCOME**."
             echo 'All bounded inferences and both DOCX checks must pass to claim eight successful A/B pairs. A red run is evidence of a real integration failure.'
             echo 'Model: qwen2.5:3b; two separate calls per pair (A then B), each capped at 3072 output tokens and 300-second timeout; source: live NICE HTTPS; eight pairs only.'
-            echo 'No mock, no paid API, no model fine-tuning; no artifact storage or automatic publishing.'
+            echo 'No mock, no paid API, no model fine-tuning; verified unreviewed Word drafts are retained as a one-day CI artifact, not published as a release.'
             echo 'This does NOT establish semantic source support, clinical safety, expert validation, psychometric equivalence, 20-pair throughput, or chat download links.'
           } >> "$GITHUB_STEP_SUMMARY"
           rm -rf "$RUNNER_TEMP/real-child-pair"
