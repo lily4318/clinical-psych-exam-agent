@@ -145,6 +145,7 @@ def _single_form_request(
     *, repair_duplicate_options: bool = False,
     repair_identical_stem: bool = False,
     repair_repeated_stem: bool = False,
+    repair_rationale_contradiction: bool = False,
 ) -> dict[str, Any]:
     """Ask a small local model for ONE bounded JSON item, preserving pair planning.
 
@@ -232,6 +233,14 @@ def _single_form_request(
             "不得只更換姓名、年齡、數字或重複舊題。"
             "四選項、正解、逐項解析及來源仍須完整且一致；"
             "來源不足時必須回報 source_insufficient=true。"
+        )
+    if repair_rationale_contradiction:
+        request["retry_reason"] = "rationale_contradiction"
+        request["task"] += (
+            "前次正確與錯誤選項使用相同實質理由，或來源時間方向顛倒，"
+            "已被驗證器拒絕。請從原始來源重新推導四個不同選項及其理由，"
+            "完整重新生成 item；不得僅修改正誤標籤或繞過來源。"
+            "來源不足以支持唯一答案時回報 source_insufficient=true。"
         )
     if repair_duplicate_options:
         # A single bounded regeneration, never an automatic clinical edit.
@@ -557,6 +566,7 @@ def generate_child_parallel_docx(
                         repair_duplicate_options=(attempt == 1 and retry_reason == "duplicate_answer_options"),
                         repair_identical_stem=(attempt == 1 and retry_reason == "identical_parallel_stem"),
                         repair_repeated_stem=(attempt == 1 and retry_reason == "repeated_stem_across_pairs"),
+                        repair_rationale_contradiction=(attempt == 1 and retry_reason == "rationale_contradiction"),
                     ))
                     if not isinstance(single, dict) or single.get("source_insufficient"):
                         raise ValueError(
@@ -599,6 +609,14 @@ def generate_child_parallel_docx(
                         )
                         and "invalid=none;" in failures[0]
                     )
+                    retry_rationale = (
+                        attempt == 0 and len(failures) == 1
+                        and (failures[0].startswith("Rationale contradiction:")
+                             or failures[0].startswith("Temporal source contradiction:"))
+                    )
+                    if retry_rationale:
+                        retry_reason = "rationale_contradiction"
+                        continue
                     if retry_duplicate:
                         retry_reason = "duplicate_answer_options"
                         continue
