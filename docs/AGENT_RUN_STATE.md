@@ -74,3 +74,12 @@
 - 真模型 [45058575277](https://github.com/lily4318/clinical-psych-exam-agent/actions/runs/45058575277)，job `137319183616` **failed**。免費 CPU Ollama `qwen2.5:3b` 的 P01 甲卷第一次推論 127.1s（prompt 2300/output 409 tokens），有限重生第二次 115.9s（2386/458 tokens），仍被拒絕：`P01 form_a: Rationale contradiction: correct and incorrect options share the same substantive explanation after verdict labels are removed.`。未開始有效乙卷／八配對交付，DOCX 檢查 skipped。容器 running=true、OOMKilled=false、記憶不足訊號未見；分類為**有限重生後內容語意一致性仍失敗**，不是語法／runner／OOM。
 - 本輪可回退改進僅為新故障與兩次真推論成本的持久化，**未修改產題程式、未修復模型輸出、未完成 G3/G4**。下一工程單元應針對正誤選項解析共用理由，檢視 P01 生成提示和來源命題約束，設計一個具測試的最小改進；不能放寬語意哨兵或增加無界重試。
 - 五軌 KPI：A=356/356；B=本次真模型端到端0/1，G3=0/1，G4=未驗證；C=0/0獨立專家；D=0/0真實考生；E=未使用付費模型 API，兩次推論合計243.0s，prompt tokens=4686，output tokens=867（僅本次 P01 A 兩次），完整成本未知。回退：revert 本段紀錄 commit 或關閉 Draft PR；不修改 main/formal。
+
+
+## 2026-11-23 05:02｜真模型八配對首次 G3 成功（新證據，非 G4）
+- Baseline：PR #46 head `790412f281b4d88f23fd400abd03d45280633bd7`，open/draft、未合併；正式 main/formal-v1.0 未變。本輪先重新讀取正式政策、任務書、狀態與教訓，並檢查原始 Actions job/log。
+- P0：pytest [run 45063661959](https://github.com/lily4318/clinical-psych-exam-agent/actions/runs/45063661959)，job 137334931928，原始日誌 **356 passed in 8.51s**。
+- **P2 重大新證據**：真實免費本地 Ollama `qwen2.5:3b` [run 45063661960](https://github.com/lily4318/clinical-psych-exam-agent/actions/runs/45063661960)，job 137334931977，原始日誌 `GENERATION_OUTCOME: success`、`VERIFICATION_OUTCOME: success`；甲乙各 **8 題**，各卷 answers=8、complete_option_rationales=8、reader_layout=modern_strict、errors=[]。兩份 DOCX 在 runner 上已實際生成並通過結構檢查，SHA256 分別 `1a41f35cc8707d1145bc95c1ebd1e337b6adc4471c5f91852be41dbc94945486` 與 `e1edbc03411515bbfdfdf9f818a02c3f9e7e85c244cd55967de5ccebb95513f4`。
+- **不可擴大宣稱**：workflow 明示不儲存 artifact、不自動發布，runner 暫存檔在 job 結束清除；因此 **G3=1/1、G4=未驗證／未交付下載**。8 題成功不代表預設20題、成人領域、臨床語意支持、獨立專家品質或甲乙心理計量等值已通過。成功不是本輪新增程式造成；本輪僅將新驗證證據持久化。
+- 下一個第一障礙：在不新增付費服務、保護個資與未經核可正式題的前提下，設計可驗證且安全的兩份 DOCX 下載交付路徑；應先釐清現有 runner 無 artifact 的限制，並做受控 G4 測試，不能以成功 job URL 冒充 Word 下載連結。
+- 五軌：A=356/356；B=本次真模型8組配對生成+兩份 DOCX 結構驗證 1/1（G3），聊天端可下載 G4=0/0 未測；C=0/0；D=0/0；E=未使用付費 API，CPU 推論，完整 token、費用與總耗時本輪未彙整（未知）；rollback：revert 本段狀態紀錄，候選 PR 保持 draft，main/formal 不變。
