@@ -58,3 +58,11 @@
 - **真實 Ollama 回歸失敗**：[run 45033747552](https://github.com/lily4318/clinical-psych-exam-agent/actions/runs/45033747552)，job `137242859509`。免費本地 `qwen2.5:3b` 已完成 P01–P03 的 A/B 六次真推論，但 `P03 form_b` 於輸出前被新語意哨兵拒絕：`Rationale contradiction: correct and incorrect options share the same substantive explanation after verdict labels are removed.`；exit code 1，**本次無兩份DOCX G3成功**。容器仍運作，OOMKilled=false，未見記憶不足訊號；故障類別是模型輸出品質／內容一致性拒絕，**不是**runner、Docker、付費API或平台安全拒絕。
 - 本輪可驗證改善：將新真模型失敗的原始 run/job、確切拒絕原因、模型和完成範圍寫入跨對話狀態，避免後續把「pytest綠燈」誤判為端到端成功；**未修改產題程式、未重新觸發模型、未宣稱修復**。下一個工程單元應在候選分支加入**有上限的單題重生與重驗**，保留原始拒絕紀錄並測試重試耗時／終止條件；不能放寬哨兵或以假題替代。
 - 五軌：A=355/355 pytest；B=本次真模型端到端0/1次成功（六次推論完成但驗證拒絕，G3未達）；C=0/0無獨立專家；D=0/0無考生；E=未使用付費API，六次推論耗時約689秒（各次118.9、110.3、80.1、80.9、150.6、148.2秒），token/金額未知；回退為 revert 本段狀態紀錄 commit 或關閉 Draft PR，main/formal未變。
+
+
+## 2026-11-23 00:55｜單題重試後的真模型新障礙（候選診斷）
+- Baseline：Draft PR #46 head `68fce107e15d676cbd2157c996d51a7ab46012a0`，open/draft、未合併；main `b7604d3d45d8e6f16cdcf96a21e03211e6519c3b`，正式 formal-v1.0 不變。
+- 新增單題語意重試程式與測試的 PR pytest [45041657042](https://github.com/lily4318/clinical-psych-exam-agent/actions/runs/45041657042)，job `137267223598`，原始日誌確認 **356/356 passed in 8.68s**。這只驗證程式回歸，不等於真模型端到端成功。
+- 同一 head 真實免費本地 Ollama `qwen2.5:3b` [45041657038](https://github.com/lily4318/clinical-psych-exam-agent/actions/runs/45041657038)，job `137267247366` **failed**：`ValueError: P07: duplicate question stem in 乙卷; already used by 乙卷 P01.`；生成失敗，DOCX verification skipped，沒有本次雙 Word 交付。容器 running=true、OOMKilled=false、記憶不足訊號未見。故障分類為跨題題幹重複（模型輸出品質／去重重試未恢復），不是 CI、runner、OOM、付費服務或安全攔截。
+- 本輪唯一可回退改進：將最新原始失敗與明確的下一優先障礙持久化，避免再次針對已解除的 rationale contradiction 重複修改。尚未修改命題程式、未重新執行推論、未達 G3/G4。下一工程單元：在不放寬來源、語意與跨題去重驗證下，針對 P07 重試失敗設計可驗證的多樣化題幹約束／有限重生，先做合成測試，再跑真模型；仍失敗須拒絕輸出。
+- 五軌 KPI：A=356/356；B=本次真模型端到端0/1，G3=0/1、G4未知；C=0/0（無專家資料）；D=0/0（無考生資料）；E=未呼叫付費 API，模型 token／成本未知，真模型整體耗時與逐次 token 未核實。rollback：revert 本次狀態 commit 或關閉候選 PR；不得合併 main。
