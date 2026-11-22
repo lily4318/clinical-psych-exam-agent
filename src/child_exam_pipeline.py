@@ -312,7 +312,8 @@ def _rationale_consistency_errors(
     # Only evidence actually cited by this item is eligible. Match one
     # unambiguous numerical deadline and only inspect explanations which
     # claim to justify the correct choice, not quotations in distractors.
-    cited = set(item.get("sources") or [])
+    ids = item.get("sources")
+    cited = {s for s in ids if isinstance(s, str)} if isinstance(ids, list) else set()
     supported = [
         str(source.get("excerpt") or "")
         for source in (source_context or [])
