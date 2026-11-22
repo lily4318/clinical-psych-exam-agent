@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -30,6 +31,8 @@ SYSTEM_RULES = (
     "各有四個選項、單一最佳答案與逐項解析。"
     "只能參考本次提供的臨床指引摘錄，不可捏造診斷準則、藥理、安全處置"
     "或來源；摘錄不足時回報 source_insufficient=true。"
+    "來源的時間方向、範圍與否定不得顛倒（within=期限內；after=之後；at least=至少）。"
+    "正確選項與錯誤選項不得共用同一實質理由來得到相反判定。"
     "不得自稱已經專家審查、使用者核可或正式發布。請只輸出合法 JSON object。"
 )
 
@@ -114,6 +117,9 @@ def _request(spec: dict[str, Any], evidence: list[dict[str, str]], number: int) 
             "正確答案須符合每卷指定的 target_answer_position。",
             "甲乙題幹須為不同情境，不可只更換人名或數值。",
             "兩題皆須附逐項 A-D 解析與具體正解依據。",
+            "先核對來源原文的時間、否定及量詞方向；within 3 months=3個月內，不是至少3個月後。",
+            "正確答案只能因選項內容受到來源支持而判定；若指定字母無法同時符合來源與單一最佳答案，回報來源不足，勿硬湊。",
+            "每個選項的解析須明確對應該選項與其他選項的差異；不得相同理由一邊說正確一邊說錯誤。",
             "sources 只能列出本次 source_context 的 source_id。",
             "來源摘錄不足時停止；不可以虛構、猜測或引用純網址當作證據。",
             "僅生成題幹、四選項、正確答案、正解及A-D逐項解析、引用來源ID。",
@@ -160,6 +166,9 @@ def _single_form_request(
             "rationale(correct,A,B,C,D)、sources(來源ID陣列)。"
             "四個選項必須各自具體、彼此不同，不得複製同一內容或只改標籤。"
             "每個選項解析須各自具體說明正誤，文字精簡但不能省略。"
+            "先逐字核查來源時間界限、比較級、否定及量詞；例如within 3 months表示3個月內，絕不是至少在3個月後。"
+            "正確選項與錯誤選項不可用相同實質理由得到相反結論；若多個錯誤選項犯相同錯誤，可註明共同原因，勿重複長篇。"
+            "若指定答案字母與來源支持的正解無法一致，應回報source_insufficient=true，不得捏造支持或強行指定答案。"
             "答案位置必須符合 form.target_answer_position；"
             "僅當所有提供的摘錄都無法支持本考點的安全命題時，才回報 source_insufficient=true；"
             "若其中至少一份摘錄能直接支持題幹、正解與 A-D 逐項解析，"
@@ -259,11 +268,95 @@ def _with_planned_metadata(
     return {**planned, **item}
 
 
+
+def _explanatory_core(detail: str) -> str:
+    """Compare reasons, not just 'correct/incorrect' labels; no semantic certification."""
+    stripped = re.sub(
+        r"^\s*(?:[ABCD]\s*選項\s*[：:]\s*)?"
+        r"(?:不正確|正確|錯誤|不對|對)"
+        r"\s*[，,。:：]?\s*(?:因為)?\s*",
+        "", detail,
+    )
+    return normalize_question_stem(stripped)
+
+
+def _rationale_consistency_errors(
+    item: dict[str, Any],
+    source_context: list[dict[str, str]] | None,
+) -> list[str]:
+    """Conservative fail-closed sentinels for *known* rationale contradictions.
+
+    These checks catch a repeated affirmative/negative explanation and a
+    specific English 'within N units' -> Chinese 'at least N units later'
+    reversal. They DO NOT replace full source-claim or clinical review.
+    """
+    rationale = item.get("rationale")
+    answer = item.get("correct_answer")
+    if not isinstance(rationale, dict) or answer not in LETTERS:
+        return []
+    if not all(isinstance(rationale.get(key), str) for key in LETTERS):
+        return []
+
+    errors: list[str] = []
+    correct_core = _explanatory_core(rationale[answer])
+    if len(correct_core) >= 18:
+        if any(
+            _explanatory_core(rationale[letter]) == correct_core
+            for letter in LETTERS if letter != answer
+        ):
+            errors.append(
+                "Rationale contradiction: correct and incorrect options share "
+                "the same substantive explanation after verdict labels are removed."
+            )
+
+    # Only evidence actually cited by this item is eligible. Match one
+    # unambiguous numerical deadline and only inspect explanations which
+    # claim to justify the correct choice, not quotations in distractors.
+    cited = set(item.get("sources") or [])
+    supported = [
+        str(source.get("excerpt") or "")
+        for source in (source_context or [])
+        if source.get("source_id") in cited
+    ]
+    positive = str(rationale.get("correct") or "") + "\n" + rationale[answer]
+    for excerpt in supported:
+        for m in re.finditer(
+            r"\bwithin\s+(\d+)\s+(days?|weeks?|months?|years?)\b",
+            excerpt, flags=re.I,
+        ):
+            count, unit = m.group(1), m.group(2).lower()
+            zh_units = (
+                r"(?:天|日)" if unit.startswith("day")
+                else r"(?:週|周|星期)" if unit.startswith("week")
+                else r"(?:個月|个月|月)" if unit.startswith("month")
+                else r"(?:年)"
+            )
+            reversal = re.compile(
+                rf"(?:至少|最少|不早於|不得早於|必須等待|需要等待)"
+                rf"\s*(?:在)?\s*{re.escape(count)}\s*{zh_units}\s*(?:之)?後"
+            )
+            for match in reversal.finditer(positive):
+                prefix = positive[max(0, match.start()-8):match.start()]
+                if any(neg in prefix for neg in ("並非", "不是", "而非", "不應", "並不是")):
+                    continue
+                errors.append(
+                    "Temporal source contradiction: 'within N units' is not "
+                    "'at least N units later'; verify the correct-answer rationale."
+                )
+                break
+            if errors and errors[-1].startswith("Temporal source contradiction"):
+                break
+        if errors and errors[-1].startswith("Temporal source contradiction"):
+            break
+    return errors
+
+
 def _check_item(
     item: Any,
     spec: dict[str, Any],
     expected: dict[str, str],
     allowed_sources: set[str],
+    source_context: list[dict[str, str]] | None = None,
 ) -> list[str]:
     if not isinstance(item, dict):
         return ["Model did not return a question object."]
@@ -325,6 +418,7 @@ def _check_item(
                    for source in sources)
             or len(sources) != len(set(str(source) for source in sources))):
         errors.append("Sources must cite unique IDs with supplied evidence for this pair.")
+    errors.extend(_rationale_consistency_errors(item, source_context))
     return errors
 
 
@@ -473,7 +567,8 @@ def generate_child_parallel_docx(
                         single.get("item"), spec, request["forms"][index]
                     )
                     failures = _check_item(
-                        item, spec, request["forms"][index], allowed
+                        item, spec, request["forms"][index], allowed,
+                        request["source_context"],
                     )
                     if not failures:
                         if (key == "form_b" and normalize_question_stem(item["stem"])
@@ -528,7 +623,7 @@ def generate_child_parallel_docx(
             ("乙卷", second, request["forms"][1]),
         ):
             errors.extend(f"{label}: {message}" for message in _check_item(
-                item, spec, expected, allowed
+                item, spec, expected, allowed, request["source_context"]
             ))
         if errors:
             raise ValueError(f"{spec['pair_id']}: " + "; ".join(errors))
