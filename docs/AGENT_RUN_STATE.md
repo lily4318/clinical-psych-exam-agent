@@ -50,3 +50,11 @@
 - **品質界線／下一障礙**：目前是**有限特徵的確定性哨兵**，不具完整跨語言來源語意蘊涵能力，也未驗證新模型生成成功率；需補實際真模型再命題與人工抽查，並於**保留A–D機器可驗證資料**前提下另行讓DOCX匯出器／驗證器支援相同錯誤理由合併。若任何選項正確性仍與來源不符，不可用排版整併掩蓋。
 - **五軌（本次訓練）**：A=355/355 pytest（合成+結構回歸，非臨床）；B=歷史main遠端3/3+3/3 DOCX及下載成功，新提示後模型端到端成功數未知／未測；C=獨立專家0/0；D=真實考生0/0；E=本輪未新增付費服務，模型token與推論金額未知，新測試CI約8.58秒（非生成延遲）。版本：V2 Draft PR #46；模型實測歷史 `qwen2.5:3b`，本次訓練未呼叫模型。
 - **回退方式**：只revert候選PR #46本輪程式／測試／技能／教訓／狀態提交或直接關閉Draft PR；main、formal-v1.0及正式藍圖不受影響。
+
+
+## 2026-11-22 23:00｜真模型回歸新失敗（診斷紀錄；尚未修復）
+- 最新 PR #46 head `6282948b71d51173b952b0dd22b484b577cf2cca`，仍 open/draft、未合併；main正式政策優先。
+- 同一 head 的 pytest [run 45033747531](https://github.com/lily4318/clinical-psych-exam-agent/actions/runs/45033747531)，job `137242790187` 原始日誌 `355 passed in 4.94s`；這不是模型品質證據。
+- **真實 Ollama 回歸失敗**：[run 45033747552](https://github.com/lily4318/clinical-psych-exam-agent/actions/runs/45033747552)，job `137242859509`。免費本地 `qwen2.5:3b` 已完成 P01–P03 的 A/B 六次真推論，但 `P03 form_b` 於輸出前被新語意哨兵拒絕：`Rationale contradiction: correct and incorrect options share the same substantive explanation after verdict labels are removed.`；exit code 1，**本次無兩份DOCX G3成功**。容器仍運作，OOMKilled=false，未見記憶不足訊號；故障類別是模型輸出品質／內容一致性拒絕，**不是**runner、Docker、付費API或平台安全拒絕。
+- 本輪可驗證改善：將新真模型失敗的原始 run/job、確切拒絕原因、模型和完成範圍寫入跨對話狀態，避免後續把「pytest綠燈」誤判為端到端成功；**未修改產題程式、未重新觸發模型、未宣稱修復**。下一個工程單元應在候選分支加入**有上限的單題重生與重驗**，保留原始拒絕紀錄並測試重試耗時／終止條件；不能放寬哨兵或以假題替代。
+- 五軌：A=355/355 pytest；B=本次真模型端到端0/1次成功（六次推論完成但驗證拒絕，G3未達）；C=0/0無獨立專家；D=0/0無考生；E=未使用付費API，六次推論耗時約689秒（各次118.9、110.3、80.1、80.9、150.6、148.2秒），token/金額未知；回退為 revert 本段狀態紀錄 commit 或關閉 Draft PR，main/formal未變。
