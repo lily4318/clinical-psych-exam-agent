@@ -7,6 +7,8 @@ from src.child_exam_pipeline import _check_item, _request, _single_form_request
 SPEC = {
     "pair_id": "P02", "category": "TEST", "core_topic": "deadline",
     "difficulty": "medium", "cognitive_level": "apply",
+    "equivalence_note": "同考點但不同臨床情境的合成測試配對",
+    "form_a_item": "P02", "form_b_item": "P02",
 }
 EXPECTED = {"item_id": "P02", "form": "甲卷", "target_answer_position": "B"}
 EXCERPT = (
