@@ -9,3 +9,5 @@
 - 2026-10-20｜故障教訓｜曾有 `This tool call was blocked by OpenAI's safety checks. Please double check what you are sending.`，應分類平台安全拒絕、停止相同寫入重試；不可推定Billing Lock／403／runner／pytest｜來源：使用者歷史紀錄，**本輪未重現**。
 
 加入新經驗格式：`日期｜類別｜觀察／學到什麼｜原始證據或使用者說明｜實際驗證狀態`。只寫真的，不把讀過100筆索引稱為100篇全文，不把pytest通過稱專家驗證。
+
+- 2026-11-22｜臨床來源與解析一致性｜使用者提供的兒少卷第2題，NICE CG128 §1.5.1 原文 `within 3 months`（轉介後**3個月內**開始）被選項解析說成「至少在3個月後」，且正確／錯誤選項複製同一臨床理由，只替換判定標籤。**核心原因**：原有管線僅驗證 source ID、答案字母位置、A–D非空、DOCX結構，缺乏來源命題方向與各選項實質理由一致性檢查。候選訓練修正：先建立來源命題（時點、比較、否定、上下限），再推導答案；禁止硬湊預設字母；把重複正／錯理由視為拒絕條件；僅同樣的錯誤選項理由可待版面支援後整併。證據：使用者摘錄、NICE官方 https://www.nice.org.uk/guidance/cg128/chapter/Recommendations 、PR #46 `src/child_exam_pipeline.py` 與 `tests/test_child_semantic_consistency.py`；候選 pytest run 45033586792 `355 passed in 8.58s`。**限制**：此關卡僅捕捉部分明確顛倒與理由複製，並非完整醫療語意驗證；尚未重新真模型推論、尚未實作讀者版共同解析整併、未經獨立專家驗證。
