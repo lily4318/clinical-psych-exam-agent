@@ -160,3 +160,51 @@ def test_rationale_contradiction_retries_once_then_fails_closed(tmp_path):
     assert calls[-1]["form"]["form"] == "乙卷"
     assert "重新推導" in calls[-1]["task"]
     assert not list(tmp_path.glob("*.docx"))
+
+
+def test_combined_duplicate_and_rationale_error_uses_one_bounded_retry(tmp_path):
+    """Both defects must be reported together, then fail closed if still present."""
+    blueprint = load_domain_blueprint()
+    evidence = {
+        source_id: {
+            "url": source["url"], "retrieved_at": "2026-11-23",
+            "passage": "Synthetic provenance-only test passage. " * 4,
+        }
+        for source_id, source in blueprint["sources"].items()
+        if source["kind"] == "clinical_guideline"
+    }
+    calls = []
+
+    def model(request):
+        calls.append(request)
+        slot = request["form"]
+        source_id = request["source_context"][0]["source_id"]
+        correct = slot["target_answer_position"]
+        wrong = next(letter for letter in "ABCD" if letter != correct)
+        rationale = {
+            "correct": "合成正解理由，僅供程式測試。",
+            **{letter: f"合成選項{letter}的獨立判斷理由。" for letter in "ABCD"},
+        }
+        options = {letter: f"合成選項{letter}" for letter in "ABCD"}
+        if slot["form"] == "乙卷":
+            options = {letter: "四項完全相同的合成選項" for letter in "ABCD"}
+            rationale[correct] = "正確：完全相同且足夠長度的合成實質判斷理由。"
+            rationale[wrong] = "錯誤：完全相同且足夠長度的合成實質判斷理由。"
+        return {"item": {
+            "stem": f"{slot['form']} 合成測試情境，非臨床題。",
+            "options": options,
+            "correct_answer": correct,
+            "rationale": rationale,
+            "sources": [source_id],
+        }}
+
+    with pytest.raises(ValueError):
+        generate_child_parallel_docx(
+            model, evidence, tmp_path, items_per_form=1, split_pair_inference=True,
+        )
+    assert len(calls) == 3
+    assert calls[-1]["form"]["form"] == "乙卷"
+    assert calls[-1]["retry_reason"] == "duplicate_answer_options"
+    assert "前次正確與錯誤選項使用相同實質理由" in calls[-1]["task"]
+    assert "前次輸出的四個選項出現重複" in calls[-1]["task"]
+    assert not list(tmp_path.glob("*.docx"))
