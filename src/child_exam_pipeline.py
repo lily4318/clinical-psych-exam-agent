@@ -572,10 +572,10 @@ def generate_child_parallel_docx(
                 for attempt in range(2):
                     single = callback(_single_form_request(
                         request, key, previous,
-                        repair_duplicate_options=(attempt == 1 and retry_reason == "duplicate_answer_options"),
+                        repair_duplicate_options=(attempt == 1 and retry_reason in ("duplicate_answer_options", "duplicate_and_rationale")),
                         repair_identical_stem=(attempt == 1 and retry_reason == "identical_parallel_stem"),
                         repair_repeated_stem=(attempt == 1 and retry_reason == "repeated_stem_across_pairs"),
-                        repair_rationale_contradiction=(attempt == 1 and retry_reason == "rationale_contradiction"),
+                        repair_rationale_contradiction=(attempt == 1 and retry_reason in ("rationale_contradiction", "duplicate_and_rationale")),
                     ))
                     if not isinstance(single, dict) or single.get("source_insufficient"):
                         raise ValueError(
@@ -618,21 +618,28 @@ def generate_child_parallel_docx(
                         )
                         and "invalid=none;" in failures[0]
                     )
-                    retry_rationale = (
-                        attempt == 0 and len(failures) == 1
-                        and (failures[0].startswith("Rationale contradiction:")
-                             or failures[0].startswith("Temporal source contradiction:"))
+                    # A model may produce duplicate options AND contradictory
+                    # rationales in the same item. Both are eligible for the
+                    # same single bounded full-item regeneration, provided no
+                    # unrelated schema, source or clinical safety check failed.
+                    retryable = all(
+                        (failure.startswith("Options must be substantial and pairwise distinct ")
+                         and "invalid=none;" in failure)
+                        or failure.startswith("Rationale contradiction:")
+                        or failure.startswith("Temporal source contradiction:")
+                        for failure in failures
                     )
-                    if retry_rationale:
-                        retry_reason = "rationale_contradiction"
-                        continue
-                    if retry_duplicate:
-                        retry_reason = "duplicate_answer_options"
-                        continue
-                    if not retry_duplicate:
-                        raise ValueError(
-                            f"{spec['pair_id']} {key}: " + "; ".join(failures)
+                    if attempt == 0 and retryable:
+                        retry_reason = (
+                            "duplicate_and_rationale"
+                            if len(failures) > 1
+                            else "duplicate_answer_options"
+                            if retry_duplicate else "rationale_contradiction"
                         )
+                        continue
+                    raise ValueError(
+                        f"{spec['pair_id']} {key}: " + "; ".join(failures)
+                    )
                 result[key] = item
         else:
             result = callback(request)
