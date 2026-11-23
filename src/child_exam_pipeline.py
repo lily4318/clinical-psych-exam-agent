@@ -181,6 +181,14 @@ def _single_form_request(
             "不要輸出題號、卷別、難度、核可狀態等程式可填入的欄位。"
         ),
         "pair_spec": pair_request["pair_spec"],
+        # Rotate a source-grounded reasoning lens across pairs; never force a
+        # claim absent from the supplied evidence. This is a prompt hint only.
+        "reasoning_lens": (
+            "來源明示的核心臨床表現",
+            "來源明示的功能影響",
+            "來源明示的評估資訊",
+            "來源明示的介入或轉介原則",
+        )[(int(pair_request["pair_spec"]["pair_id"][1:]) - 1) % 4],
         "form": slot,
         # An explicit, pair-specific whitelist is easier for a small model to
         # follow than extracting permitted citations from long source excerpts.
