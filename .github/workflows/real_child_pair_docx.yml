@@ -48,12 +48,14 @@ jobs:
           curl --silent --show-error --fail http://127.0.0.1:11434/api/tags >/dev/null
       - name: Pull free 3B diagnostic model (not a clinical quality model)
         run: docker exec clinical-exam-ollama ollama pull qwen2.5:3b
+      # P06-A on 2026-11-23 timed out at 300s after ten completed calls; allow
+      # one slower CPU call up to 450s, still bounded by the 90-minute job cap.
       - name: Generate EIGHT real source-grounded A/B pairs in bounded calls
         id: generate
         shell: bash
         run: |
           set -euo pipefail
-          python -m src.child_exam_pipeline --auto-evidence --items 8 --model qwen2.5:3b --timeout-seconds 300 --max-output-tokens 3072 --split-pair-inference --out "$RUNNER_TEMP/real-child-pair"
+          python -m src.child_exam_pipeline --auto-evidence --items 8 --model qwen2.5:3b --timeout-seconds 450 --max-output-tokens 3072 --split-pair-inference --out "$RUNNER_TEMP/real-child-pair"
       # The real 2026-10-26 run reached P03 then received HTTP 500 from
       # Ollama. Never assume that a pulled model is missing or that pytest failed.
       # Capture bounded, content-free resource signals; do not print prompts,
