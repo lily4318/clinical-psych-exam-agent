@@ -39,3 +39,16 @@ Before answering a request to generate, review, or export a clinical psychologis
 - Existing `formal-v1.0`, approved items, answers and approved blueprints are immutable without the owner's new explicit approval.
 - For authorized development, use an isolated branch/PR, run `python -m pytest`, inspect the actual GitHub Actions result and preserve rollback information; do not merge an unverified change.
 - Never enable paid APIs, fine-tuning, paid runners or external hosting without the user's explicit consent. Preserve training/development vs truly held-out expert review separation.
+
+## V2 單核心工作技能路由（候選）
+
+使用者已確認「高自主、低干擾、跨對話持續交付」。考題規範稱「命題規範與來源依據」，不是品牌手冊。先遵守上方 canonical sources，再依 `docs/AGENT_ARCHITECTURE_V2.md`、`docs/EXAM_TASKBOOK.md` 路由：
+
+| 自然語言意圖 | 使用的功能技能（非獨立模型） |
+|---|---|
+| 兒少／成人來源、最近五年、考點藍圖 | `.agents/skills/exam-evidence-blueprint/SKILL.md` |
+| 命題、甲乙、指定N題 | `.agents/skills/exam-compose/SKILL.md` |
+| Word／下載／交付 | `.agents/skills/exam-docx-delivery/SKILL.md` |
+| 繼續／卡住／每小時優化／訓練 | `.agents/skills/exam-continuous-improvement/SKILL.md` |
+
+一鍵命題依 `exam-evidence-blueprint → exam-compose → exam-docx-delivery` 執行；不因此新增獨立主管／修正／輸出 Agent。新對話讀 `docs/AGENT_RUN_STATE.md` 和 `docs/AGENT_LESSONS.md`，再以 live GitHub 核對，禁止僅憑過期快照宣稱成功。使用者只在必要權限／正式核可／安全或無安全預設時介入；兩個真實可下載DOCX在首次回覆提供，否則寫「Word 尚未交付」。正式、安全與零額外付費規則優先於學習檔案。

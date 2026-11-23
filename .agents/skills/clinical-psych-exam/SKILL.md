@@ -40,3 +40,7 @@ Do not request that the user paste all files if the host can read them. If GitHu
 ## Evaluate honestly
 
 The portable DOCX checker establishes document structure (G3), **not** host download access (G4), professional correctness (G5), or psychometric equivalence. Refer to `docs/CROSS_PLATFORM_ACCEPTANCE.md` for six separate gates; log unknowns as unknowns. Public users have read-only access to the author's repository and should not push results into it. Do not invoke paid model APIs or services merely to execute this skill.
+
+## V2 modular workflow (candidate; still one core Agent)
+
+Keep this skill as the single portable entry point. The four procedural skills are `exam-evidence-blueprint` (source-backed domain blueprint), `exam-compose` (genuine free inference and A/B structured questions), `exam-docx-delivery` (real two-DOCX G3 and first-reply G4), and `exam-continuous-improvement` (GitHub-grounded continuation, rollback and five-track KPIs). See `docs/AGENT_ARCHITECTURE_V2.md`, `docs/EXAM_TASKBOOK.md`, `docs/AGENT_RUN_STATE.md`, `docs/AGENT_LESSONS.md`. These operational layers never override canonical formal, security or evaluation policies. No automatic new model agents, paid LLMs, or claim of DOCX delivery without verified files and first-response links.

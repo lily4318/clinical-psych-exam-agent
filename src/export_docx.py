@@ -21,6 +21,16 @@ def _safe_slug(value: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip(".-") or "draft"
 
 
+def _inline_exam_text(value: str) -> str:
+    """Keep one model-supplied field on one Word line for strict parsing.
+
+    A leading newline after the deterministic question/option prefix otherwise
+    hides the question or option from the external DOCX verifier. Preserve all
+    non-whitespace characters; do not rewrite clinical claims.
+    """
+    return re.sub(r"\s+", " ", value).strip()
+
+
 def _validate_exam(exam: dict[str, Any], *, include_answers: bool) -> None:
     if exam.get("form") not in {"甲卷", "乙卷"}:
         raise ValueError("Expected a 甲卷 or 乙卷 exam.")
@@ -189,9 +199,9 @@ def export_exam_docx(
     document.core_properties.identifier = f"exam_version:{version}"
 
     for number, item in enumerate(exam["items"], start=1):
-        document.add_heading(f"{number}. {item['stem']}", level=2)
+        document.add_heading(f"{number}. {_inline_exam_text(item['stem'])}", level=2)
         for letter in "ABCD":
-            document.add_paragraph(f"({letter}) {item['options'][letter]}")
+            document.add_paragraph(f"({letter}) {_inline_exam_text(item['options'][letter])}")
 
     if include_answers:
         document.add_page_break()

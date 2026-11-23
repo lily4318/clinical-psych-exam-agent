@@ -11,6 +11,15 @@ on:
       - src/child_exam_pipeline.py
       - src/child_source_fetch.py
   workflow_dispatch:
+    inputs:
+      items:
+        description: 'Diagnostic pairs per form (8 baseline or 20 scale test)'
+        required: true
+        default: '8'
+        type: choice
+        options:
+          - '8'
+          - '20'
 
 permissions:
   contents: read
@@ -48,12 +57,16 @@ jobs:
           curl --silent --show-error --fail http://127.0.0.1:11434/api/tags >/dev/null
       - name: Pull free 3B diagnostic model (not a clinical quality model)
         run: docker exec clinical-exam-ollama ollama pull qwen2.5:3b
+      # P06-A on 2026-11-23 timed out at 300s after ten completed calls; allow
+      # one slower CPU call up to 450s, still bounded by the 90-minute job cap.
       - name: Generate EIGHT real source-grounded A/B pairs in bounded calls
         id: generate
         shell: bash
         run: |
           set -euo pipefail
-          python -m src.child_exam_pipeline --auto-evidence --items 8 --model qwen2.5:3b --timeout-seconds 300 --max-output-tokens 3072 --split-pair-inference --out "$RUNNER_TEMP/real-child-pair"
+          items="${{ github.event_name == 'workflow_dispatch' && inputs.items || '8' }}"
+          [[ "$items" == '8' || "$items" == '20' ]] || { echo 'Unsupported item count'; exit 2; }
+          python -m src.child_exam_pipeline --auto-evidence --items "$items" --model qwen2.5:3b --timeout-seconds 450 --max-output-tokens 3072 --split-pair-inference --out "$RUNNER_TEMP/real-child-pair"
       # The real 2026-10-26 run reached P03 then received HTTP 500 from
       # Ollama. Never assume that a pulled model is missing or that pytest failed.
       # Capture bounded, content-free resource signals; do not print prompts,
@@ -87,8 +100,22 @@ jobs:
           files_a=("$RUNNER_TEMP"/real-child-pair/form_a_*.docx)
           files_b=("$RUNNER_TEMP"/real-child-pair/form_b_*.docx)
           [[ ${#files_a[@]} -eq 1 && ${#files_b[@]} -eq 1 ]] || { echo 'Expected exactly two Word files'; exit 1; }
-          python -m src.verify_external_delivery "${files_a[0]}" "${files_b[0]}" --items 8
+          items="${{ github.event_name == 'workflow_dispatch' && inputs.items || '8' }}"
+          [[ "$items" == '8' || "$items" == '20' ]] || exit 2
+          python -m src.verify_external_delivery "${files_a[0]}" "${files_b[0]}" --items "$items"
           sha256sum "${files_a[0]}" "${files_b[0]}"
+      # Keep only structurally verified, unreviewed diagnostic drafts for one day.
+      # This is a CI artifact, not a clinical approval or a public release.
+      - name: Retain verified diagnostic Word files for download
+        if: ${{ success() && steps.verify.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: unreviewed-child-exam-pair-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/real-child-pair/form_a_*.docx
+            ${{ runner.temp }}/real-child-pair/form_b_*.docx
+          if-no-files-found: error
+          retention-days: 1
       - name: Record diagnostic result and clean up draft files
         if: always()
         shell: bash
@@ -100,9 +127,9 @@ jobs:
             echo '## REAL clinical pair / two-DOCX integration diagnostic'
             echo 'Baseline: main d728665e626a59a08bd7587d6423909d0e14ebb4; pytest 263/263; source-only 1/1; nonclinical JSON 1/1.'
             echo "Generation: **$GENERATION_OUTCOME**; DOCX verification: **$VERIFICATION_OUTCOME**."
-            echo 'All bounded inferences and both DOCX checks must pass to claim eight successful A/B pairs. A red run is evidence of a real integration failure.'
-            echo 'Model: qwen2.5:3b; two separate calls per pair (A then B), each capped at 3072 output tokens and 300-second timeout; source: live NICE HTTPS; eight pairs only.'
-            echo 'No mock, no paid API, no model fine-tuning; no artifact storage or automatic publishing.'
-            echo 'This does NOT establish semantic source support, clinical safety, expert validation, psychometric equivalence, 20-pair throughput, or chat download links.'
+            echo 'All bounded inferences and both DOCX checks must pass to claim successful A/B pairs. A red run is evidence of a real integration failure.'
+            echo 'Model: qwen2.5:3b; two separate calls per pair (A then B), each capped at 3072 output tokens and 450-second timeout; source: live NICE HTTPS; PR baseline 8 pairs, optional manual 20-pair scale diagnostic.'
+            echo 'No mock, no paid API, no model fine-tuning; verified unreviewed Word drafts are retained as a one-day CI artifact, not published as a release.'
+            echo 'This does NOT establish semantic source support, clinical safety, expert validation, psychometric equivalence, or chat download links. A successful 8-pair run does not establish 20-pair throughput.'
           } >> "$GITHUB_STEP_SUMMARY"
           rm -rf "$RUNNER_TEMP/real-child-pair"
